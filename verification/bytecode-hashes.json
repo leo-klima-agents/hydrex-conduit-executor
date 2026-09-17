@@ -1,0 +1,17 @@
+{
+  "contract": "src/KlimaVeTokenConduitExecutor.sol:KlimaVeTokenConduitExecutor",
+  "create2Deployer": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+  "creationCodeKeccak": "0x0f145bc1837cb1fd9ff9b63bbd964c4a0ed0516545fed71b77f30c12effdea9a",
+  "deployment": {
+    "address": "0x750973E0CB728C3112561Bc8E9b235afA9B17E81",
+    "conduit": "0xdE91885cF35ac57DF0c4A75c16862127dBe8317c",
+    "constructorArgs": "0x00000000000000000000000017f513c024c1c67db050258ba569c714a9cf1b12000000000000000000000000de91885cf35ac57df0c4a75c16862127dbe8317c000000000000000000000000625cf6663d9d090535fbd57680bffe6fa0262434",
+    "keeper": "0x625CF6663d9D090535FBd57680bFFE6fA0262434",
+    "runtimeKeccak": "0x56e19359cc65ac6f233ccb20f65e72ea6edfa1648b9f249d5a8ac36ae6dff957",
+    "safe": "0x17f513C024C1C67db050258ba569c714a9CF1B12"
+  },
+  "runtimeTemplateKeccak": "0x731f1880bdbf9a5d9b35587d10f0d240a6f269ffdf592d60cac3a5e0edd4e8e4",
+  "salt": "0xb91216e23b7d638fa8422579ff12de62768d5a5e202ed2da40cb47a276730e48",
+  "saltPreimage": "klimaprotocol.com/KlimaVeTokenConduitExecutor/v1",
+  "solc": "0.8.37+commit.f401782d"
+}

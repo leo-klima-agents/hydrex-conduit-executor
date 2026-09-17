@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: 2026 Léo de Souza
+# SPDX-License-Identifier: MIT
+
+[profile.default]
+solc_version = "0.8.37"
+evm_version = "prague"
+optimizer = true
+optimizer_runs = 1_000_000
+via_ir = true
+bytecode_hash = "ipfs"
+cbor_metadata = true
+remappings = ["forge-std/=lib/forge-std/src/"]
+skip = ["test/upstream/hydrex/KlimaVeTokenConduit.sol"]
+fs_permissions = [
+  { access = "read", path = "./test/upstream" },
+  { access = "read", path = "./out" },
+  { access = "read-write", path = "./verification" },
+]
+
+[profile.ci.fuzz]
+runs = 10_000
+
+[fmt]
+ignore = ["./test/upstream/**/*.sol", "lib/**"]
+
+[profile.strict.lint]
+exclude_lints = ["inline-assembly"]
+
+[lint]
+ignore = ["test/upstream/**/*.sol"]
+exclude_lints = [
+  "inline-assembly",
+  "unsafe-typecast",
+  "unused-return",
+  "unsafe-cheatcode",
+  "literal-instead-of-constant",
+  "low-level-calls",
+  "uninitialized-local",
+  "calls-loop",
+  "reentrancy-events",
+  "arbitrary-send-eth",
+  "multi-contract-file",
+  "missing-inheritance",
+  "locked-ether",
+  "empty-block",
+  "missing-zero-check",
+  "controlled-delegatecall",
+  "boolean-cst",
+  "missing-events-access-control",
+]
