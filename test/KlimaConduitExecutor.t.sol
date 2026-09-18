@@ -1,0 +1,380 @@
+// SPDX-FileCopyrightText: 2026 Klima Protocol
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.36;
+
+import {Test} from "forge-std/Test.sol";
+
+import {KlimaConduitExecutor} from "../src/KlimaConduitExecutor.sol";
+import {IKlimaVeTokenConduit} from "../src/interfaces/IKlimaVeTokenConduit.sol";
+import {MockConduit} from "./mocks/MockConduit.sol";
+import {FailingSafe, MockSafe} from "./mocks/MockSafe.sol";
+
+contract KlimaConduitExecutorTest is Test {
+    address internal keeper;
+    address internal stranger;
+
+    MockSafe internal safe;
+    MockConduit internal conduit;
+    KlimaConduitExecutor internal module;
+
+    address[] internal pools;
+    uint256[] internal weights;
+
+    function setUp() public {
+        keeper = makeAddr("keeper");
+        stranger = makeAddr("stranger");
+        safe = new MockSafe();
+        conduit = new MockConduit();
+        module = new KlimaConduitExecutor(address(safe), address(conduit), keeper);
+
+        conduit.grantExecutor(address(safe));
+        safe.enableModule(address(module));
+
+        pools.push(makeAddr("pool0"));
+        pools.push(makeAddr("pool1"));
+        weights.push(74);
+        weights.push(26);
+    }
+
+    function _claim(address caller, uint256 tokenId) internal {
+        vm.prank(caller);
+        module.claimSwapAndDistribute(
+            tokenId, new address[](0), new bytes[](0), new address[](0), new address[](0), new address[](0), 0, 0
+        );
+    }
+
+    /* ----------------------------------------------------------------------------------------------------------
+                                                    constructor
+    ---------------------------------------------------------------------------------------------------------- */
+
+    function test_constructor_storesImmutables() public view {
+        assertEq(module.SAFE(), address(safe));
+        assertEq(module.CONDUIT(), address(conduit));
+        assertEq(module.KEEPER(), keeper);
+    }
+
+    function test_constructor_revertsZeroSafe() public {
+        vm.expectRevert(KlimaConduitExecutor.ZeroAddress.selector);
+        new KlimaConduitExecutor(address(0), address(conduit), keeper);
+    }
+
+    function test_constructor_revertsZeroConduit() public {
+        vm.expectRevert(KlimaConduitExecutor.ZeroAddress.selector);
+        new KlimaConduitExecutor(address(safe), address(0), keeper);
+    }
+
+    function test_constructor_revertsZeroKeeper() public {
+        vm.expectRevert(KlimaConduitExecutor.ZeroAddress.selector);
+        new KlimaConduitExecutor(address(safe), address(conduit), address(0));
+    }
+
+    function testFuzz_constructor(address s, address c, address k) public {
+        if (s == address(0) || c == address(0) || k == address(0)) {
+            vm.expectRevert(KlimaConduitExecutor.ZeroAddress.selector);
+            new KlimaConduitExecutor(s, c, k);
+        } else {
+            KlimaConduitExecutor m = new KlimaConduitExecutor(s, c, k);
+            assertEq(m.SAFE(), s);
+            assertEq(m.CONDUIT(), c);
+            assertEq(m.KEEPER(), k);
+        }
+    }
+
+    /* ----------------------------------------------------------------------------------------------------------
+                                                       vote
+    ---------------------------------------------------------------------------------------------------------- */
+
+    function test_vote_keeperReachesConduitThroughSafe() public {
+        vm.expectEmit(address(safe));
+        emit MockSafe.ExecutionFromModuleSuccess(address(module));
+        vm.prank(keeper);
+        module.vote(pools, weights);
+
+        assertEq(conduit.voteCalls(), 1);
+        assertEq(conduit.lastSender(), address(safe));
+        assertEq(conduit.lastCalldata(), abi.encodeCall(IKlimaVeTokenConduit.vote, (pools, weights)));
+        assertEq(conduit.lastValue(), 0);
+
+        assertEq(safe.execCalls(), 1);
+        assertEq(safe.lastTo(), address(conduit));
+        assertEq(safe.lastValue(), 0);
+        assertEq(safe.lastOperation(), 0);
+        assertEq(safe.lastData(), abi.encodeCall(IKlimaVeTokenConduit.vote, (pools, weights)));
+    }
+
+    function testFuzz_vote_forwardsExactCalldata(address[] memory p, uint256 seed) public {
+        uint256[] memory w = new uint256[](p.length);
+        for (uint256 i; i < w.length; ++i) {
+            w[i] = uint256(keccak256(abi.encode(seed, i)));
+        }
+        vm.prank(keeper);
+        module.vote(p, w);
+
+        assertEq(conduit.lastCalldata(), abi.encodeCall(IKlimaVeTokenConduit.vote, (p, w)));
+        assertEq(conduit.lastSender(), address(safe));
+        assertEq(safe.lastTo(), address(conduit));
+        assertEq(safe.lastOperation(), 0);
+    }
+
+    function test_vote_emptyArraysReachConduit() public {
+        vm.prank(keeper);
+        module.vote(new address[](0), new uint256[](0));
+        assertEq(conduit.voteCalls(), 1);
+    }
+
+    function test_vote_revertsForStranger() public {
+        vm.expectRevert(KlimaConduitExecutor.NotKeeper.selector);
+        vm.prank(stranger);
+        module.vote(pools, weights);
+        assertEq(conduit.voteCalls(), 0);
+        assertEq(safe.execCalls(), 0);
+    }
+
+    function test_vote_revertsForSafeItself() public {
+        vm.expectRevert(KlimaConduitExecutor.NotKeeper.selector);
+        vm.prank(address(safe));
+        module.vote(pools, weights);
+    }
+
+    function test_vote_revertsForConduit() public {
+        vm.expectRevert(KlimaConduitExecutor.NotKeeper.selector);
+        vm.prank(address(conduit));
+        module.vote(pools, weights);
+    }
+
+    function testFuzz_vote_revertsForAnyNonKeeper(address caller) public {
+        vm.assume(caller != keeper);
+        vm.expectRevert(KlimaConduitExecutor.NotKeeper.selector);
+        vm.prank(caller);
+        module.vote(pools, weights);
+        assertEq(safe.execCalls(), 0);
+    }
+
+    function test_vote_bubblesConduitStringRevert() public {
+        uint256[] memory oneWeight = new uint256[](1);
+        vm.expectRevert(bytes("Pools/weights length mismatch"));
+        vm.prank(keeper);
+        module.vote(pools, oneWeight);
+    }
+
+    function test_vote_bubblesConduitRoleRevert() public {
+        conduit.revokeExecutor(address(safe));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MockConduit.AccessControlUnauthorizedAccount.selector, address(safe), conduit.EXECUTOR_ROLE()
+            )
+        );
+        vm.prank(keeper);
+        module.vote(pools, weights);
+    }
+
+    function test_vote_bubblesConduitCustomError() public {
+        conduit.revertWith(abi.encodeWithSelector(MockConduit.Boom.selector, 42));
+        vm.expectRevert(abi.encodeWithSelector(MockConduit.Boom.selector, 42));
+        vm.prank(keeper);
+        module.vote(pools, weights);
+    }
+
+    function testFuzz_vote_bubblesArbitraryRevertData(bytes memory data) public {
+        vm.assume(data.length != 0);
+        conduit.revertWith(data);
+        vm.expectRevert(data);
+        vm.prank(keeper);
+        module.vote(pools, weights);
+    }
+
+    function test_vote_emptyConduitRevertBecomesExecutionFailed() public {
+        conduit.revertWith("");
+        vm.expectRevert(KlimaConduitExecutor.ExecutionFailed.selector);
+        vm.prank(keeper);
+        module.vote(pools, weights);
+    }
+
+    function test_vote_safeReturningFalseReverts() public {
+        FailingSafe failing = new FailingSafe();
+        KlimaConduitExecutor m = new KlimaConduitExecutor(address(failing), address(conduit), keeper);
+        failing.enableModule(address(m));
+
+        vm.expectRevert(KlimaConduitExecutor.ExecutionFailed.selector);
+        vm.prank(keeper);
+        m.vote(pools, weights);
+        assertEq(conduit.voteCalls(), 0);
+    }
+
+    function test_vote_revertsWhenModuleNotEnabled() public {
+        safe.disableModule(address(module));
+        vm.expectRevert(bytes("GS104"));
+        vm.prank(keeper);
+        module.vote(pools, weights);
+        assertEq(conduit.voteCalls(), 0);
+    }
+
+    /* ----------------------------------------------------------------------------------------------------------
+                                              claimSwapAndDistribute
+    ---------------------------------------------------------------------------------------------------------- */
+
+    function test_claim_keeperReachesConduitThroughSafe() public {
+        address[] memory targets = new address[](1);
+        targets[0] = makeAddr("kyber");
+        bytes[] memory swaps = new bytes[](1);
+        swaps[0] = hex"deadbeef";
+        address[] memory fees = new address[](2);
+        (fees[0], fees[1]) = (makeAddr("fee0"), makeAddr("fee1"));
+        address[] memory bribes = new address[](1);
+        bribes[0] = makeAddr("bribe0");
+        address[] memory claimTokens = new address[](3);
+        (claimTokens[0], claimTokens[1], claimTokens[2]) = (makeAddr("t0"), makeAddr("t1"), makeAddr("t2"));
+
+        vm.expectEmit(address(safe));
+        emit MockSafe.ExecutionFromModuleSuccess(address(module));
+        vm.prank(keeper);
+        module.claimSwapAndDistribute(14_247, targets, swaps, fees, bribes, claimTokens, 3, 1e18);
+
+        assertEq(conduit.claimCalls(), 1);
+        assertEq(conduit.lastSender(), address(safe));
+        assertEq(conduit.lastValue(), 0);
+        assertEq(
+            conduit.lastCalldata(),
+            abi.encodeCall(
+                IKlimaVeTokenConduit.claimSwapAndDistribute,
+                (14_247, targets, swaps, fees, bribes, claimTokens, 3, 1e18)
+            )
+        );
+        assertEq(safe.lastTo(), address(conduit));
+        assertEq(safe.lastValue(), 0);
+        assertEq(safe.lastOperation(), 0);
+    }
+
+    function testFuzz_claim_forwardsExactCalldata(
+        uint256 tokenId,
+        address[] memory targets,
+        bytes[] memory swaps,
+        address[] memory fees,
+        address[] memory bribes,
+        address[] memory claimTokens,
+        uint256 retireTonnes,
+        uint256 maxKvcmIn
+    ) public {
+        vm.prank(keeper);
+        module.claimSwapAndDistribute(tokenId, targets, swaps, fees, bribes, claimTokens, retireTonnes, maxKvcmIn);
+
+        assertEq(
+            conduit.lastCalldata(),
+            abi.encodeCall(
+                IKlimaVeTokenConduit.claimSwapAndDistribute,
+                (tokenId, targets, swaps, fees, bribes, claimTokens, retireTonnes, maxKvcmIn)
+            )
+        );
+        assertEq(conduit.lastSender(), address(safe));
+        assertEq(safe.lastTo(), address(conduit));
+        assertEq(safe.lastOperation(), 0);
+    }
+
+    function test_claim_revertsForStranger() public {
+        vm.expectRevert(KlimaConduitExecutor.NotKeeper.selector);
+        _claim(stranger, 1);
+        assertEq(conduit.claimCalls(), 0);
+        assertEq(safe.execCalls(), 0);
+    }
+
+    function testFuzz_claim_revertsForAnyNonKeeper(address caller) public {
+        vm.assume(caller != keeper);
+        vm.expectRevert(KlimaConduitExecutor.NotKeeper.selector);
+        _claim(caller, 1);
+    }
+
+    function test_claim_bubblesConduitRevert() public {
+        conduit.revertWith(bytes("Router not approved"));
+        vm.expectRevert(bytes("Router not approved"));
+        _claim(keeper, 1);
+    }
+
+    function test_claim_bubblesConduitRoleRevert() public {
+        conduit.revokeExecutor(address(safe));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MockConduit.AccessControlUnauthorizedAccount.selector, address(safe), conduit.EXECUTOR_ROLE()
+            )
+        );
+        _claim(keeper, 1);
+    }
+
+    function test_claim_emptyConduitRevertBecomesExecutionFailed() public {
+        conduit.revertWith("");
+        vm.expectRevert(KlimaConduitExecutor.ExecutionFailed.selector);
+        _claim(keeper, 1);
+    }
+
+    function test_claim_safeReturningFalseReverts() public {
+        FailingSafe failing = new FailingSafe();
+        KlimaConduitExecutor m = new KlimaConduitExecutor(address(failing), address(conduit), keeper);
+        failing.enableModule(address(m));
+
+        vm.expectRevert(KlimaConduitExecutor.ExecutionFailed.selector);
+        vm.prank(keeper);
+        m.claimSwapAndDistribute(
+            1, new address[](0), new bytes[](0), new address[](0), new address[](0), new address[](0), 0, 0
+        );
+    }
+
+    function test_claim_revertsWhenModuleNotEnabled() public {
+        safe.disableModule(address(module));
+        vm.expectRevert(bytes("GS104"));
+        _claim(keeper, 1);
+    }
+
+    /* ----------------------------------------------------------------------------------------------------------
+                                                   surface
+    ---------------------------------------------------------------------------------------------------------- */
+
+    function test_surface_rejectsPlainEth() public {
+        vm.deal(stranger, 1 ether);
+        vm.prank(stranger);
+        (bool ok,) = address(module).call{value: 1}("");
+        assertFalse(ok);
+        assertEq(address(module).balance, 0);
+    }
+
+    function test_surface_rejectsEthWithCall() public {
+        vm.deal(keeper, 1 ether);
+        vm.prank(keeper);
+        (bool ok,) = address(module).call{value: 1}(abi.encodeCall(KlimaConduitExecutor.vote, (pools, weights)));
+        assertFalse(ok);
+        assertEq(address(module).balance, 0);
+        assertEq(conduit.voteCalls(), 0);
+    }
+
+    function test_surface_rejectsUnknownSelector() public {
+        vm.prank(keeper);
+        (bool ok,) = address(module).call(abi.encodeWithSignature("enableModule(address)", stranger));
+        assertFalse(ok);
+        assertEq(safe.execCalls(), 0);
+    }
+
+    function testFuzz_surface_rejectsUnknownSelector(bytes4 selector, bytes memory tail) public {
+        vm.assume(selector != KlimaConduitExecutor.vote.selector);
+        vm.assume(selector != KlimaConduitExecutor.claimSwapAndDistribute.selector);
+        vm.assume(selector != bytes4(keccak256("SAFE()")));
+        vm.assume(selector != bytes4(keccak256("CONDUIT()")));
+        vm.assume(selector != bytes4(keccak256("KEEPER()")));
+        vm.prank(keeper);
+        (bool ok,) = address(module).call(bytes.concat(selector, tail));
+        assertFalse(ok);
+    }
+
+    function test_surface_noStorageWritten() public {
+        vm.prank(keeper);
+        module.vote(pools, weights);
+        _claim(keeper, 1);
+        for (uint256 slot; slot < 8; ++slot) {
+            assertEq(vm.load(address(module), bytes32(slot)), bytes32(0));
+        }
+    }
+
+    function test_surface_safeUnchangedByModuleCalls() public {
+        vm.prank(keeper);
+        module.vote(pools, weights);
+        assertEq(address(safe).balance, 0);
+        assertTrue(safe.isModuleEnabled(address(module)));
+    }
+}

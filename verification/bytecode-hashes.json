@@ -1,0 +1,17 @@
+{
+  "contract": "src/KlimaConduitExecutor.sol:KlimaConduitExecutor",
+  "create2Deployer": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+  "creationCodeKeccak": "0xf357b4b3c00b485bef12d821e3c86b32f5408e5d5026d474601834ec9131bef5",
+  "deployment": {
+    "address": "0x02d1aadCc0b1CCFEcC6E7628Da8d10705ae14091",
+    "conduit": "0xdE91885cF35ac57DF0c4A75c16862127dBe8317c",
+    "constructorArgs": "0x000000000000000000000000a79cd47655156b299762dfe92a67980805ce5a31000000000000000000000000de91885cf35ac57df0c4a75c16862127dbe8317c000000000000000000000000000000000000000000000000000000000000dead",
+    "keeper": "0x000000000000000000000000000000000000dEaD",
+    "runtimeKeccak": "0x42e30d81fc7b632e92bffce49a813d288ef46382a689dd491100e1f1c19ffab4",
+    "safe": "0xa79cd47655156b299762DFE92A67980805ce5a31"
+  },
+  "runtimeTemplateKeccak": "0x58da197fddd54d89839679e562b7a1ef49dd6009c7534a99d62304b911a7f7f3",
+  "salt": "0xf6e61031c78ffc85f8ea84f31ea3644ec27c458019f2b4cdb1ba0dd4758d6f3e",
+  "saltPreimage": "klimaprotocol.com/KlimaConduitExecutor/v1",
+  "solc": "0.8.36+commit.8a079791"
+}
