@@ -35,11 +35,6 @@ contract MockConduit {
         revertData = data;
     }
 
-    function stopReverting() external {
-        shouldRevert = false;
-        delete revertData;
-    }
-
     function hasRole(bytes32 role, address account) external view returns (bool) {
         return role == EXECUTOR_ROLE && isExecutor[account];
     }

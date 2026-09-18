@@ -9,7 +9,8 @@ ARTIFACT=out/KlimaConduitExecutor.sol/KlimaConduitExecutor.json
 HASHES=verification/bytecode-hashes.json
 INPUT=verification/KlimaConduitExecutor.standard-input.json
 [ -f "$ARTIFACT" ] || { echo "::error::$ARTIFACT missing; run forge build" >&2; exit 1; }
-[ -f "$HASHES" ] || { echo "::error::$HASHES missing; run forge script script/Hashes.s.sol" >&2; exit 1; }
+[ -f "$HASHES" ] || { echo "::error::$HASHES missing; run script/refresh-verification.sh" >&2; exit 1; }
+[ -f "$INPUT" ] || { echo "::error::$INPUT missing; run script/refresh-verification.sh" >&2; exit 1; }
 status=0
 
 expect() {
@@ -28,12 +29,22 @@ expect .runtimeTemplateKeccak "$(cast keccak "$(jq -r '.deployedBytecode.object'
 expect .creationCodeKeccak "$(cast keccak "$creation")"
 expect .solc "$(jq -r '.metadata.compiler.version' "$ARTIFACT")"
 
+# The record must describe the constants in script/Deploy.s.sol, not merely be self-consistent.
+constant() { grep -oE "constant $1 = 0x[0-9a-fA-F]{40}" script/Deploy.s.sol | grep -oE '0x[0-9a-fA-F]{40}'; }
+expect .deployment.safe "$(cast to-check-sum-address "$(constant SAFE)")"
+expect .deployment.conduit "$(cast to-check-sum-address "$(constant CONDUIT)")"
+expect .deployment.keeper "$(cast to-check-sum-address "$(constant KEEPER)")"
+expect .saltPreimage "$(grep -oE 'SALT_PREIMAGE = "[^"]+"' script/Deploy.s.sol | cut -d'"' -f2)"
+expect .salt "$(cast keccak "$(jq -r .saltPreimage "$HASHES")")"
+
 args=$(cast abi-encode 'constructor(address,address,address)' \
   "$(jq -r .deployment.safe "$HASHES")" "$(jq -r .deployment.conduit "$HASHES")" "$(jq -r .deployment.keeper "$HASHES")")
 expect .deployment.constructorArgs "$args"
-expect .deployment.address "$(cast create2 --deployer "$(jq -r .create2Deployer "$HASHES")" --salt "$(jq -r .salt "$HASHES")" --init-code "${creation}${args#0x}" | cut -f1)"
+expect .deployment.address "$(cast create2 --deployer "$(jq -r .create2Deployer "$HASHES")" --salt "$(jq -r .salt "$HASHES")" --init-code "${creation}${args#0x}" | grep -oE '0x[0-9a-fA-F]{40}' | head -n1)"
+# .deployment.runtimeKeccak needs a deployment to recompute; test/Deploy.t.sol checks it.
 
-projection='{language, sources, settings: (.settings | {optimizer, evmVersion, viaIR: (.viaIR // false), metadata, remappings: (.remappings // [])})}'
+# Everything solc reads, so a settings change in foundry.toml that verifiers must know about fails here.
+projection='del(.settings.outputSelection)'
 current=$(forge verify-contract --show-standard-json-input 0x0000000000000000000000000000000000000001 src/KlimaConduitExecutor.sol:KlimaConduitExecutor | jq -S "$projection")
 if [ "$current" != "$(jq -S "$projection" "$INPUT")" ]; then
   echo "::error::$INPUT is stale" >&2

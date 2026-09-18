@@ -10,6 +10,9 @@ contract Hashes is Deploy {
     function run() external override returns (address predicted) {
         predicted = predict();
         string memory artifact = vm.readFile("out/KlimaConduitExecutor.sol/KlimaConduitExecutor.json");
+        // The constructor requires code at SAFE and CONDUIT; this script runs on a local EVM, not a fork.
+        vm.etch(SAFE, hex"00");
+        vm.etch(CONDUIT, hex"00");
         KlimaConduitExecutor local = new KlimaConduitExecutor(SAFE, CONDUIT, KEEPER);
 
         string memory dep = "deployment";

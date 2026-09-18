@@ -13,6 +13,9 @@ optimizer_runs = 1_000_000
 via_ir = true
 bytecode_hash = "ipfs"
 cbor_metadata = true
+# solc bakes remappings into the metadata hash. Pinned so a library added to lib/ later does not change the
+# bytecode of a contract that imports nothing from lib/.
+remappings = ["forge-std/=lib/forge-std/src/"]
 # The vendored conduit imports OpenZeppelin and Hydrex interfaces that are not part of this repo; Selectors.t.sol
 # checks it as text. The vendored Safe files are self-contained and compile.
 skip = ["test/upstream/hydrex/KlimaVeTokenConduit.sol"]
@@ -27,6 +30,14 @@ runs = 10_000
 
 [fmt]
 ignore = ["./test/upstream/**/*.sol", "lib/**"]
+
+# `forge lint src` under this profile: nothing but the one lint the contract genuinely needs is excluded, so the
+# test-only exclusions below never hide a defect in src/.
+[profile.strict.lint]
+exclude_lints = [
+  # inline assembly: re-raising the conduit's revert data needs `revert(ptr, len)`
+  "inline-assembly",
+]
 
 [lint]
 ignore = ["test/upstream/**/*.sol"]

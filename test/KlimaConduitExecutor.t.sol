@@ -2,20 +2,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.36;
 
-import {Test} from "forge-std/Test.sol";
-
 import {KlimaConduitExecutor} from "../src/KlimaConduitExecutor.sol";
 import {IKlimaVeTokenConduit} from "../src/interfaces/IKlimaVeTokenConduit.sol";
 import {MockConduit} from "./mocks/MockConduit.sol";
 import {FailingSafe, MockSafe} from "./mocks/MockSafe.sol";
+import {ModuleTestBase} from "./utils/ModuleTestBase.sol";
 
-contract KlimaConduitExecutorTest is Test {
+contract KlimaConduitExecutorTest is ModuleTestBase {
     address internal keeper;
     address internal stranger;
 
     MockSafe internal safe;
     MockConduit internal conduit;
-    KlimaConduitExecutor internal module;
 
     address[] internal pools;
     uint256[] internal weights;
@@ -34,13 +32,6 @@ contract KlimaConduitExecutorTest is Test {
         pools.push(makeAddr("pool1"));
         weights.push(74);
         weights.push(26);
-    }
-
-    function _claim(address caller, uint256 tokenId) internal {
-        vm.prank(caller);
-        module.claimSwapAndDistribute(
-            tokenId, new address[](0), new bytes[](0), new address[](0), new address[](0), new address[](0), 0, 0
-        );
     }
 
     /* ----------------------------------------------------------------------------------------------------------
@@ -68,16 +59,51 @@ contract KlimaConduitExecutorTest is Test {
         new KlimaConduitExecutor(address(safe), address(conduit), address(0));
     }
 
+    function test_constructor_revertsSafeWithoutCode() public {
+        vm.expectRevert(KlimaConduitExecutor.NotAContract.selector);
+        new KlimaConduitExecutor(makeAddr("eoa"), address(conduit), keeper);
+    }
+
+    function test_constructor_revertsConduitWithoutCode() public {
+        vm.expectRevert(KlimaConduitExecutor.NotAContract.selector);
+        new KlimaConduitExecutor(address(safe), makeAddr("eoa"), keeper);
+    }
+
+    function test_constructor_zeroCheckedBeforeCode() public {
+        vm.expectRevert(KlimaConduitExecutor.ZeroAddress.selector);
+        new KlimaConduitExecutor(address(0), makeAddr("eoa"), keeper);
+    }
+
+    function test_constructor_keeperMayBeAnyNonZeroAddress() public {
+        KlimaConduitExecutor m = new KlimaConduitExecutor(address(safe), address(conduit), address(conduit));
+        assertEq(m.KEEPER(), address(conduit));
+    }
+
     function testFuzz_constructor(address s, address c, address k) public {
         if (s == address(0) || c == address(0) || k == address(0)) {
             vm.expectRevert(KlimaConduitExecutor.ZeroAddress.selector);
             new KlimaConduitExecutor(s, c, k);
-        } else {
-            KlimaConduitExecutor m = new KlimaConduitExecutor(s, c, k);
-            assertEq(m.SAFE(), s);
-            assertEq(m.CONDUIT(), c);
-            assertEq(m.KEEPER(), k);
+            return;
         }
+        if (s.code.length == 0 || c.code.length == 0) {
+            vm.expectRevert(KlimaConduitExecutor.NotAContract.selector);
+            new KlimaConduitExecutor(s, c, k);
+            return;
+        }
+        KlimaConduitExecutor m = new KlimaConduitExecutor(s, c, k);
+        assertEq(m.SAFE(), s);
+        assertEq(m.CONDUIT(), c);
+        assertEq(m.KEEPER(), k);
+    }
+
+    function testFuzz_constructor_anyContracts(bytes32 saltA, bytes32 saltB, address k) public {
+        vm.assume(k != address(0));
+        MockSafe s = new MockSafe{salt: saltA}();
+        MockConduit c = new MockConduit{salt: saltB}();
+        KlimaConduitExecutor m = new KlimaConduitExecutor(address(s), address(c), k);
+        assertEq(m.SAFE(), address(s));
+        assertEq(m.CONDUIT(), address(c));
+        assertEq(m.KEEPER(), k);
     }
 
     /* ----------------------------------------------------------------------------------------------------------
@@ -159,6 +185,7 @@ contract KlimaConduitExecutorTest is Test {
 
     function test_vote_bubblesConduitRoleRevert() public {
         conduit.revokeExecutor(address(safe));
+        assertFalse(conduit.hasRole(conduit.EXECUTOR_ROLE(), address(safe)));
         vm.expectRevert(
             abi.encodeWithSelector(
                 MockConduit.AccessControlUnauthorizedAccount.selector, address(safe), conduit.EXECUTOR_ROLE()
@@ -291,6 +318,7 @@ contract KlimaConduitExecutorTest is Test {
 
     function test_claim_bubblesConduitRoleRevert() public {
         conduit.revokeExecutor(address(safe));
+        assertFalse(conduit.hasRole(conduit.EXECUTOR_ROLE(), address(safe)));
         vm.expectRevert(
             abi.encodeWithSelector(
                 MockConduit.AccessControlUnauthorizedAccount.selector, address(safe), conduit.EXECUTOR_ROLE()
@@ -363,12 +391,18 @@ contract KlimaConduitExecutorTest is Test {
     }
 
     function test_surface_noStorageWritten() public {
+        vm.record();
         vm.prank(keeper);
         module.vote(pools, weights);
         _claim(keeper, 1);
-        for (uint256 slot; slot < 8; ++slot) {
-            assertEq(vm.load(address(module), bytes32(slot)), bytes32(0));
-        }
+        conduit.revertWith(abi.encodeWithSelector(MockConduit.Boom.selector, 1));
+        vm.expectRevert(abi.encodeWithSelector(MockConduit.Boom.selector, 1));
+        vm.prank(keeper);
+        module.vote(pools, weights);
+
+        (bytes32[] memory reads, bytes32[] memory writes) = vm.accesses(address(module));
+        assertEq(reads.length, 0, "module read storage");
+        assertEq(writes.length, 0, "module wrote storage");
     }
 
     function test_surface_safeUnchangedByModuleCalls() public {

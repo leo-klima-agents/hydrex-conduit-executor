@@ -5,7 +5,7 @@ SPDX-License-Identifier: MIT
 
 # KlimaConduitExecutor
 
-A 65-line immutable Safe module that lets one HSM-held keeper key call two functions on Hydrex's Klima "Carbon
+A 70-line immutable Safe module that lets one HSM-held keeper key call two functions on Hydrex's Klima "Carbon
 Impact" conduit on behalf of the Klima Safe, and nothing else. Hydrex grants the conduit's `EXECUTOR_ROLE` to
 the Safe rather than to a key; a Safe cannot be driven by an EOA on a schedule; this contract is the bridge.
 It holds no funds, has no storage, no owner, no setters and no upgrade path.
@@ -37,7 +37,8 @@ by the `CONDUIT` immutable and by the eight-argument `KlimaVeTokenConduit` claim
   and the calldata is one of two selectors this contract encodes itself. The Safe's owners, its other
   assets and the Safe configuration are out of reach; there is no `delegatecall` path.
 - **Be administered or upgraded.** No owner, no setters, no proxy, no `receive`, no `fallback`, no storage.
-  The three addresses are immutables set once by the constructor, which rejects zeros.
+  The three addresses are immutables set once by the constructor, which rejects zeros and requires code at
+  `SAFE` and `CONDUIT`, since a `Call` to an empty address would succeed silently.
 - **Widen its own permissions.** Whether the Safe may call the conduit is the conduit's `EXECUTOR_ROLE`,
   granted and revoked by Hydrex's `DEFAULT_ADMIN_ROLE`. Whether this module may act for the Safe is the
   Safe's module list, changed only by a Safe transaction. Either side can cut it off; the module cannot
@@ -70,7 +71,7 @@ with which swap calldata*, both within the conduit's and Voter's own checks.
 | Salt | `keccak256("klimaprotocol.com/KlimaConduitExecutor/v1")` |
 
 Not deployed yet. `KEEPER` is an immutable, so the HSM key must exist first. When it does: set `KEEPER` in
-`script/Deploy.s.sol`, run `forge build && forge script script/Hashes.s.sol` to refresh `verification/`,
+`script/Deploy.s.sol`, run `script/refresh-verification.sh` to regenerate both files under `verification/`,
 commit, then
 
 ```
@@ -79,9 +80,12 @@ forge verify-contract <address> src/KlimaConduitExecutor.sol:KlimaConduitExecuto
 forge verify-contract <address> src/KlimaConduitExecutor.sol:KlimaConduitExecutor --chain base --verifier sourcify
 ```
 
-A module deployed with the placeholder is inert, since no one holds that key, and would simply be redeployed
-under a new salt. The address is recorded in `verification/bytecode-hashes.json`, and `test/Deploy.t.sol` pins
-it to the constants in `script/Deploy.s.sol`.
+`run` refuses to deploy the placeholder in any script context; only tests may. The CREATE2 address is a
+function of the constructor arguments, so the recorded address above belongs to the placeholder alone: the real
+keeper gets its own address under the same salt, and a stray placeholder deployment would be inert and occupy
+nothing the real one needs. The address is recorded in `verification/bytecode-hashes.json`, `test/Deploy.t.sol`
+pins the record to the constants in `script/Deploy.s.sol` (including the runtime hash), and
+`script/check-verification.sh` reads the same constants from the script text.
 
 ## Wiring, outside this repo
 
@@ -114,19 +118,24 @@ contract is deployed under a new salt.
 
 - `src/KlimaConduitExecutor.sol` and `src/interfaces/` are the whole surface; the rest is tests, tooling and
   records.
-- `forge test` runs 46 tests against `test/mocks/`, which mirror the Safe's `GS104` module gate and return-data
+- `forge test` runs 53 tests against `test/mocks/`, which mirror the Safe's `GS104` module gate and return-data
   path and the conduit's OpenZeppelin v5 role gate: the keeper reaches the conduit with exact calldata, fuzzed
   over arrays; every other caller reverts; conduit reverts bubble with their original data, fuzzed; a Safe
-  returning `false` reverts; ETH and unknown selectors are rejected; no storage is written.
-- `BASE_RPC_URL=<archive rpc> forge test --match-path test/Fork.t.sol` runs 13 more on Base at pinned blocks:
+  returning `false` reverts; ETH and unknown selectors are rejected; `vm.accesses` shows no storage read or
+  written; every constructor rejection path, fuzzed.
+- `BASE_RPC_URL=<archive rpc> forge test --match-path test/Fork.t.sol` runs 14 more on Base at pinned blocks:
   Hydrex's grant and the Safe's `enableModule` are pranked, then the keeper votes through the module and the
   live Voter records it; the keeper's own 2026-09-09 vote
   ([tx](https://basescan.org/tx/0x6766749800fbc54c5cf134b3fd15a2456a57115b8319be995a48693406121607)) is replayed
   one block earlier through the module and produces the same three `Voted` weights; a claim for a Safe-owned
-  veNFT completes; the module fails before Hydrex's grant, before the Safe enables it, and for any other caller.
-  CI runs this job only when the `BASE_RPC_URL` secret is set.
-- `forge build --sizes` gives a 2,477-byte runtime. Two clean builds are byte-identical, and `verification/`
-  holds the standard JSON input and the bytecode hashes CI checks on every commit.
+  veNFT completes; the module fails before Hydrex's grant, before the Safe enables it, and for any other caller;
+  the deploy script's targets are the live contracts. The fork suite reads `SAFE` and `CONDUIT` from
+  `script/Deploy.s.sol`. CI runs this job only when the `BASE_RPC_URL` secret is set.
+- `forge build --sizes` gives a 2,477-byte runtime. Two clean builds are byte-identical, and
+  `verification/` holds the standard JSON input and the bytecode hashes CI checks on every commit; remappings
+  are pinned in `foundry.toml` because solc hashes them into the metadata.
+- `forge lint --deny warnings` runs twice in CI: once repo-wide with the test-only exclusions in `foundry.toml`,
+  once on `src/` under the `strict` profile, which excludes nothing but `inline-assembly`.
 - Compiler: solc 0.8.36, `prague`, optimizer at 1,000,000 runs, via-IR, ipfs metadata. Via-IR because the
   eight-argument claim signature is too deep for the legacy codegen; Hydrex built the conduit via-IR for the
   same reason.

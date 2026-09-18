@@ -29,6 +29,13 @@ jobs:
         run: forge build --sizes
       - name: forge lint
         run: forge lint --deny warnings
+      - name: forge lint src (strict profile, no test-only exclusions)
+        run: FOUNDRY_PROFILE=strict forge lint --deny warnings src
+      - name: foundry.lock matches the forge-std submodule
+        run: |
+          locked=$(jq -r '."lib/forge-std".rev' foundry.lock)
+          actual=$(git -C lib/forge-std rev-parse HEAD)
+          [ "$locked" = "$actual" ] || { echo "::error::foundry.lock pins $locked but lib/forge-std is at $actual"; exit 1; }
       - name: forge test (ci fuzz profile, fork tests skipped without BASE_RPC_URL)
         run: forge test -vvv
 
@@ -102,3 +109,5 @@ jobs:
           cmp /tmp/creation1.hex /tmp/creation2.hex
       - name: matches verification/
         run: ./script/check-verification.sh
+      - name: record matches script/Deploy.s.sol (runtimeKeccak included)
+        run: forge test --match-path test/Deploy.t.sol

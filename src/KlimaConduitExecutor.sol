@@ -8,18 +8,23 @@ import {ISafeModuleManager} from "./interfaces/ISafeModuleManager.sol";
 /// @title KlimaConduitExecutor
 /// @notice Safe module that lets one keeper key call `vote` and `claimSwapAndDistribute` on one Hydrex conduit
 ///         on the Safe's behalf, and nothing else. Every call is a plain `Call` to `CONDUIT` with zero value and
-///         calldata this contract encodes itself. No storage, no owner, no upgrade path, no ETH.
-contract KlimaConduitExecutor {
+///         calldata this contract encodes itself. No storage, no owner, no upgrade path, no ETH. Implements
+///         `IKlimaVeTokenConduit` so the two signatures are the conduit's by construction.
+contract KlimaConduitExecutor is IKlimaVeTokenConduit {
     address public immutable SAFE;
     address public immutable CONDUIT;
     address public immutable KEEPER;
 
     error ZeroAddress();
+    error NotAContract();
     error NotKeeper();
     error ExecutionFailed();
 
+    /// @dev `safe` and `conduit` must hold code: a `Call` to an empty address succeeds silently, so a mistyped
+    ///      conduit would make every vote a no-op that reports success.
     constructor(address safe, address conduit, address keeper) {
         if (safe == address(0) || conduit == address(0) || keeper == address(0)) revert ZeroAddress();
+        if (safe.code.length == 0 || conduit.code.length == 0) revert NotAContract();
         SAFE = safe;
         CONDUIT = conduit;
         KEEPER = keeper;

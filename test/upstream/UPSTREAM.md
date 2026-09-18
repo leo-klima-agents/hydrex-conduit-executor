@@ -63,4 +63,4 @@ forge test --match-path test/Selectors.t.sol
 
 The conduit is not upgradeable, so its file changes only if Hydrex deploys a new conduit; that is a new
 `CONDUIT` immutable and a new salt. If a selector test fails after a refresh, fix `src/interfaces/`, regenerate
-`verification/` with `forge script script/Hashes.s.sol`, and redeploy under a bumped salt.
+both files under `verification/` with `script/refresh-verification.sh`, and redeploy under a bumped salt.
