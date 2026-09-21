@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2026 Klima Protocol
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 /// @notice Records what reaches the conduit. Mirrors the OpenZeppelin v5 `onlyRole(EXECUTOR_ROLE)` gate and the
 ///         conduit's `Pools/weights length mismatch` check; a `revertWith` mode replays any revert data so the

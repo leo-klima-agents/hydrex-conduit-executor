@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2026 Klima Protocol
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 /// @notice The two `EXECUTOR_ROLE` members of Hydrex's `KlimaVeTokenConduit`, re-declared; nothing is imported.
 interface IKlimaVeTokenConduit {

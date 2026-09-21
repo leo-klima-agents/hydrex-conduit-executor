@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2026 Klima Protocol
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 /// @notice Safe 1.3.0 `ModuleManager` semantics for the members this repo touches: the `GS104` module gate,
 ///         `execute` as a plain `call`/`delegatecall` with `gasleft()`, the two module events, and

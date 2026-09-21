@@ -3,8 +3,8 @@
 
 [profile.default]
 # The conduit was compiled with 0.8.26/cancun; this contract shares nothing with it but two selectors,
-# so it tracks the current release instead, as relay-fee-skim does.
-solc_version = "0.8.36"
+# so it tracks the current solc release instead, as relay-fee-skim does. Bump the pragmas with it.
+solc_version = "0.8.37"
 evm_version = "prague"
 optimizer = true
 optimizer_runs = 1_000_000

@@ -136,7 +136,7 @@ contract is deployed under a new salt.
   are pinned in `foundry.toml` because solc hashes them into the metadata.
 - `forge lint --deny warnings` runs twice in CI: once repo-wide with the test-only exclusions in `foundry.toml`,
   once on `src/` under the `strict` profile, which excludes nothing but `inline-assembly`.
-- Compiler: solc 0.8.36, `prague`, optimizer at 1,000,000 runs, via-IR, ipfs metadata. Via-IR because the
+- Compiler: solc 0.8.37, `prague`, optimizer at 1,000,000 runs, via-IR, ipfs metadata. Via-IR because the
   eight-argument claim signature is too deep for the legacy codegen; Hydrex built the conduit via-IR for the
   same reason.
 
