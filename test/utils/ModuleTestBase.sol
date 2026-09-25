@@ -4,11 +4,10 @@ pragma solidity 0.8.37;
 
 import {Test} from "forge-std/Test.sol";
 
-import {HydrexCarbonImpactExecutor} from "../../src/HydrexCarbonImpactExecutor.sol";
+import {KlimaVeTokenConduitExecutor} from "../../src/KlimaVeTokenConduitExecutor.sol";
 
-/// @notice Shared by the mock and fork suites. `_claim` is the smallest claim the conduit accepts.
 abstract contract ModuleTestBase is Test {
-    HydrexCarbonImpactExecutor internal module;
+    KlimaVeTokenConduitExecutor internal module;
 
     function _claim(address caller, uint256 tokenId) internal {
         vm.prank(caller);

@@ -5,14 +5,13 @@ pragma solidity 0.8.37;
 import {Test} from "forge-std/Test.sol";
 
 import {Deploy} from "../script/Deploy.s.sol";
-import {HydrexCarbonImpactExecutor} from "../src/HydrexCarbonImpactExecutor.sol";
+import {KlimaVeTokenConduitExecutor} from "../src/KlimaVeTokenConduitExecutor.sol";
 
 contract DeployTest is Test {
     Deploy internal d;
 
     function setUp() public {
         d = new Deploy();
-        // The constructor requires code at SAFE and CONDUIT.
         vm.etch(d.SAFE(), hex"00");
         vm.etch(d.CONDUIT(), hex"00");
     }
@@ -21,11 +20,10 @@ contract DeployTest is Test {
         assertEq(d.SAFE(), 0xa79cd47655156b299762DFE92A67980805ce5a31);
         assertEq(d.CONDUIT(), 0xdE91885cF35ac57DF0c4A75c16862127dBe8317c);
         assertEq(d.keeper(), 0x625CF6663d9D090535FBd57680bFFE6fA0262434);
-        assertEq(d.KEEPER_RECORD(), "test/upstream/keeper-key/keeper.json");
-        assertEq(d.SALT(), keccak256("klimaprotocol.com/HydrexCarbonImpactExecutor/v1"));
+        assertEq(d.KEEPER_RECORD(), "test/upstream/keeper/keeper.json");
+        assertEq(d.SALT(), keccak256("klimaprotocol.com/KlimaVeTokenConduitExecutor/v1"));
     }
 
-    /// @dev Key version 1: HSM, secp256k1.
     function test_keeperRecord_describesTheHsmKey() public view {
         string memory json = vm.readFile(d.KEEPER_RECORD());
         assertEq(vm.parseJsonString(json, ".algorithm"), "EC_SIGN_SECP256K1_SHA256");
@@ -36,9 +34,8 @@ contract DeployTest is Test {
         assertEq(vm.parseJsonAddress(json, ".address"), d.keeper());
     }
 
-    /// @dev PEM -> base64 -> DER SubjectPublicKeyInfo -> uncompressed point -> keccak256 -> last 20 bytes.
     function test_keeperRecord_addressDerivesFromPublicKey() public view {
-        bytes memory der = _pemToDer(vm.readFile("test/upstream/keeper-key/keeper.pem"));
+        bytes memory der = _pemToDer(vm.readFile("test/upstream/keeper/keeper.pem"));
         assertEq(der.length, 88, "secp256k1 SPKI is 88 bytes");
         bytes memory prefix = hex"3056301006072a8648ce3d020106052b8104000a03420004";
         for (uint256 i; i < prefix.length; ++i) {
@@ -56,7 +53,9 @@ contract DeployTest is Test {
     function test_predict_dependsOnKeeper() public view {
         bytes memory otherArgs = abi.encode(d.SAFE(), d.CONDUIT(), address(0xB0B));
         address other = vm.computeCreate2Address(
-            d.SALT(), keccak256(bytes.concat(type(HydrexCarbonImpactExecutor).creationCode, otherArgs)), CREATE2_FACTORY
+            d.SALT(),
+            keccak256(bytes.concat(type(KlimaVeTokenConduitExecutor).creationCode, otherArgs)),
+            CREATE2_FACTORY
         );
         assertTrue(other != d.predict());
     }
@@ -66,7 +65,6 @@ contract DeployTest is Test {
         bytes memory b64 = new bytes(raw.length);
         uint256 n;
         bool inBody;
-        // Keep the base64 between the BEGIN and END lines.
         for (uint256 i; i < raw.length; ++i) {
             bytes1 c = raw[i];
             if (c == "-") {
@@ -106,16 +104,18 @@ contract DeployTest is Test {
 
     function test_recordMatchesScript() public {
         string memory json = vm.readFile("verification/bytecode-hashes.json");
-        assertEq(vm.parseJsonString(json, ".contract"), "src/HydrexCarbonImpactExecutor.sol:HydrexCarbonImpactExecutor");
+        assertEq(
+            vm.parseJsonString(json, ".contract"), "src/KlimaVeTokenConduitExecutor.sol:KlimaVeTokenConduitExecutor"
+        );
         assertEq(vm.parseJsonAddress(json, ".create2Deployer"), CREATE2_FACTORY);
         assertEq(vm.parseJsonString(json, ".saltPreimage"), d.SALT_PREIMAGE());
         assertEq(vm.parseJsonBytes32(json, ".salt"), d.SALT());
         assertEq(
-            vm.parseJsonBytes32(json, ".creationCodeKeccak"), keccak256(type(HydrexCarbonImpactExecutor).creationCode)
+            vm.parseJsonBytes32(json, ".creationCodeKeccak"), keccak256(type(KlimaVeTokenConduitExecutor).creationCode)
         );
         assertEq(
             vm.parseJsonBytes32(json, ".runtimeTemplateKeccak"),
-            keccak256(vm.getDeployedCode("HydrexCarbonImpactExecutor.sol:HydrexCarbonImpactExecutor"))
+            keccak256(vm.getDeployedCode("KlimaVeTokenConduitExecutor.sol:KlimaVeTokenConduitExecutor"))
         );
         assertEq(vm.parseJsonAddress(json, ".deployment.safe"), d.SAFE());
         assertEq(vm.parseJsonAddress(json, ".deployment.conduit"), d.CONDUIT());
@@ -124,7 +124,7 @@ contract DeployTest is Test {
         assertEq(vm.parseJsonAddress(json, ".deployment.address"), d.predict());
         assertEq(
             vm.parseJsonBytes32(json, ".deployment.runtimeKeccak"),
-            keccak256(address(new HydrexCarbonImpactExecutor(d.SAFE(), d.CONDUIT(), d.keeper())).code)
+            keccak256(address(new KlimaVeTokenConduitExecutor(d.SAFE(), d.CONDUIT(), d.keeper())).code)
         );
     }
 
@@ -134,9 +134,9 @@ contract DeployTest is Test {
 
         assertEq(d.run(), predicted);
 
-        assertEq(HydrexCarbonImpactExecutor(predicted).SAFE(), d.SAFE());
-        assertEq(HydrexCarbonImpactExecutor(predicted).CONDUIT(), d.CONDUIT());
-        assertEq(HydrexCarbonImpactExecutor(predicted).KEEPER(), d.keeper());
+        assertEq(KlimaVeTokenConduitExecutor(predicted).SAFE(), d.SAFE());
+        assertEq(KlimaVeTokenConduitExecutor(predicted).CONDUIT(), d.CONDUIT());
+        assertEq(KlimaVeTokenConduitExecutor(predicted).KEEPER(), d.keeper());
     }
 
     function test_run_isIdempotent() public {

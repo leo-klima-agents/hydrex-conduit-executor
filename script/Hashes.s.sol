@@ -2,18 +2,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.37;
 
-import {HydrexCarbonImpactExecutor} from "../src/HydrexCarbonImpactExecutor.sol";
+import {KlimaVeTokenConduitExecutor} from "../src/KlimaVeTokenConduitExecutor.sol";
 import {Deploy} from "./Deploy.s.sol";
 
-/// @notice Writes verification/bytecode-hashes.json for the canonical deployment.
 contract Hashes is Deploy {
     function run() external override returns (address predicted) {
         predicted = predict();
-        string memory artifact = vm.readFile("out/HydrexCarbonImpactExecutor.sol/HydrexCarbonImpactExecutor.json");
-        // The constructor requires code at SAFE and CONDUIT.
+        string memory artifact = vm.readFile("out/KlimaVeTokenConduitExecutor.sol/KlimaVeTokenConduitExecutor.json");
         vm.etch(SAFE, hex"00");
         vm.etch(CONDUIT, hex"00");
-        HydrexCarbonImpactExecutor local = new HydrexCarbonImpactExecutor(SAFE, CONDUIT, keeper());
+        KlimaVeTokenConduitExecutor local = new KlimaVeTokenConduitExecutor(SAFE, CONDUIT, keeper());
 
         string memory dep = "deployment";
         string memory depJson = vm.serializeAddress(dep, "safe", SAFE);
@@ -25,16 +23,17 @@ contract Hashes is Deploy {
 
         string memory root = "hashes";
         string memory json =
-            vm.serializeString(root, "contract", "src/HydrexCarbonImpactExecutor.sol:HydrexCarbonImpactExecutor");
+            vm.serializeString(root, "contract", "src/KlimaVeTokenConduitExecutor.sol:KlimaVeTokenConduitExecutor");
         json = vm.serializeString(root, "solc", vm.parseJsonString(artifact, ".metadata.compiler.version"));
         json = vm.serializeAddress(root, "create2Deployer", CREATE2_FACTORY);
         json = vm.serializeString(root, "saltPreimage", SALT_PREIMAGE);
         json = vm.serializeBytes32(root, "salt", SALT);
-        json = vm.serializeBytes32(root, "creationCodeKeccak", keccak256(type(HydrexCarbonImpactExecutor).creationCode));
+        json =
+            vm.serializeBytes32(root, "creationCodeKeccak", keccak256(type(KlimaVeTokenConduitExecutor).creationCode));
         json = vm.serializeBytes32(
             root,
             "runtimeTemplateKeccak",
-            keccak256(vm.getDeployedCode("HydrexCarbonImpactExecutor.sol:HydrexCarbonImpactExecutor"))
+            keccak256(vm.getDeployedCode("KlimaVeTokenConduitExecutor.sol:KlimaVeTokenConduitExecutor"))
         );
         json = vm.serializeString(root, "deployment", depJson);
         vm.writeJson(json, "verification/bytecode-hashes.json");

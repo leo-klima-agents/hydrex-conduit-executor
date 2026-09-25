@@ -5,10 +5,8 @@ pragma solidity 0.8.37;
 import {IKlimaVeTokenConduit} from "./interfaces/IKlimaVeTokenConduit.sol";
 import {ISafeModuleManager} from "./interfaces/ISafeModuleManager.sol";
 
-/// @title HydrexCarbonImpactExecutor
-/// @notice Safe module that lets `KEEPER` call `vote` and `claimSwapAndDistribute` on `CONDUIT` as the Safe, and
-///         nothing else.
-contract HydrexCarbonImpactExecutor is IKlimaVeTokenConduit {
+/// @notice Safe module that lets `KEEPER` call `vote` and `claimSwapAndDistribute` on `CONDUIT` as the Safe.
+contract KlimaVeTokenConduitExecutor is IKlimaVeTokenConduit {
     address public immutable SAFE;
     address public immutable CONDUIT;
     address public immutable KEEPER;
@@ -18,7 +16,6 @@ contract HydrexCarbonImpactExecutor is IKlimaVeTokenConduit {
     error NotKeeper();
     error ExecutionFailed();
 
-    /// @dev A `Call` to an address without code succeeds silently, so `safe` and `conduit` must be contracts.
     constructor(address safe, address conduit, address keeper) {
         if (safe == address(0) || conduit == address(0) || keeper == address(0)) revert ZeroAddress();
         if (safe.code.length == 0 || conduit.code.length == 0) revert NotAContract();
@@ -49,7 +46,6 @@ contract HydrexCarbonImpactExecutor is IKlimaVeTokenConduit {
         );
     }
 
-    /// @dev Re-raises the conduit's revert data, or `ExecutionFailed` if there is none.
     function _exec(bytes memory data) internal {
         if (msg.sender != KEEPER) revert NotKeeper();
         (bool ok, bytes memory ret) = ISafeModuleManager(SAFE).execTransactionFromModuleReturnData(CONDUIT, 0, data, 0);

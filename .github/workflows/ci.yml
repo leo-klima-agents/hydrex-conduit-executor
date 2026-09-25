@@ -95,14 +95,14 @@ jobs:
         run: |
           forge clean
           forge build --force
-          jq -r '.deployedBytecode.object' out/HydrexCarbonImpactExecutor.sol/HydrexCarbonImpactExecutor.json > /tmp/runtime1.hex
-          jq -r '.bytecode.object' out/HydrexCarbonImpactExecutor.sol/HydrexCarbonImpactExecutor.json > /tmp/creation1.hex
+          jq -r '.deployedBytecode.object' out/KlimaVeTokenConduitExecutor.sol/KlimaVeTokenConduitExecutor.json > /tmp/runtime1.hex
+          jq -r '.bytecode.object' out/KlimaVeTokenConduitExecutor.sol/KlimaVeTokenConduitExecutor.json > /tmp/creation1.hex
       - name: build #2 from clean
         run: |
           forge clean
           forge build --force
-          jq -r '.deployedBytecode.object' out/HydrexCarbonImpactExecutor.sol/HydrexCarbonImpactExecutor.json > /tmp/runtime2.hex
-          jq -r '.bytecode.object' out/HydrexCarbonImpactExecutor.sol/HydrexCarbonImpactExecutor.json > /tmp/creation2.hex
+          jq -r '.deployedBytecode.object' out/KlimaVeTokenConduitExecutor.sol/KlimaVeTokenConduitExecutor.json > /tmp/runtime2.hex
+          jq -r '.bytecode.object' out/KlimaVeTokenConduitExecutor.sol/KlimaVeTokenConduitExecutor.json > /tmp/creation2.hex
       - name: builds are identical
         run: |
           cmp /tmp/runtime1.hex /tmp/runtime2.hex

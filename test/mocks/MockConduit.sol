@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.37;
 
-/// @notice Records what reaches the conduit, with the conduit's role gate and length check. `revertWith` replays
-///         arbitrary revert data.
 contract MockConduit {
     bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
 

@@ -6,13 +6,10 @@ solc_version = "0.8.37"
 evm_version = "prague"
 optimizer = true
 optimizer_runs = 1_000_000
-# The eight-argument claim signature is too deep for the legacy codegen.
 via_ir = true
 bytecode_hash = "ipfs"
 cbor_metadata = true
-# Remappings are hashed into the metadata; pinned so adding a library does not change the bytecode.
 remappings = ["forge-std/=lib/forge-std/src/"]
-# Imports OpenZeppelin and Hydrex files that are not vendored; Selectors.t.sol reads it as text.
 skip = ["test/upstream/hydrex/KlimaVeTokenConduit.sol"]
 fs_permissions = [
   { access = "read", path = "./test/upstream" },
@@ -26,18 +23,13 @@ runs = 10_000
 [fmt]
 ignore = ["./test/upstream/**/*.sol", "lib/**"]
 
-# `forge lint src` without the test-only exclusions below.
 [profile.strict.lint]
-exclude_lints = [
-  "inline-assembly", # re-raising revert data needs `revert(ptr, len)`
-]
+exclude_lints = ["inline-assembly"]
 
 [lint]
 ignore = ["test/upstream/**/*.sol"]
 exclude_lints = [
-  "inline-assembly", # src: re-raising revert data needs `revert(ptr, len)`
-
-  # tests, scripts and mocks
+  "inline-assembly",
   "unsafe-typecast",
   "unused-return",
   "unsafe-cheatcode",

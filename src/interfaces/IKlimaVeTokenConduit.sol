@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.37;
 
-/// @notice The two `EXECUTOR_ROLE` members of Hydrex's `KlimaVeTokenConduit`.
 interface IKlimaVeTokenConduit {
     function vote(address[] calldata pools, uint256[] calldata weights) external;
 

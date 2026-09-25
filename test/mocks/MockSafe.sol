@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.37;
 
-/// @notice Safe 1.3.0 `ModuleManager` semantics for `execTransactionFromModuleReturnData`: the `GS104` gate, the
-///         two module events and the callee's return or revert data. `enableModule` is unauthenticated.
 contract MockSafe {
     event ExecutionFromModuleSuccess(address indexed module);
     event ExecutionFromModuleFailure(address indexed module);
@@ -44,7 +42,6 @@ contract MockSafe {
     receive() external payable {}
 }
 
-/// @notice Reports failure with no return data without calling anything.
 contract FailingSafe is MockSafe {
     function execTransactionFromModuleReturnData(address, uint256, bytes memory, uint8)
         external

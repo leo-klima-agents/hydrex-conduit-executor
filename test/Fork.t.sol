@@ -5,7 +5,7 @@ pragma solidity 0.8.37;
 import {Vm} from "forge-std/Test.sol";
 
 import {Deploy} from "../script/Deploy.s.sol";
-import {HydrexCarbonImpactExecutor} from "../src/HydrexCarbonImpactExecutor.sol";
+import {KlimaVeTokenConduitExecutor} from "../src/KlimaVeTokenConduitExecutor.sol";
 import {IKlimaVeTokenConduit} from "../src/interfaces/IKlimaVeTokenConduit.sol";
 import {ModuleTestBase} from "./utils/ModuleTestBase.sol";
 
@@ -35,8 +35,6 @@ interface IVotingEscrow {
     function ownerOf(uint256 tokenId) external view returns (address);
 }
 
-/// @notice Base mainnet, skipped without `BASE_RPC_URL`: Hydrex grants, the Safe enables, the keeper calls, and the
-///         live Voter records the vote. Pins the conduit's code and the Safe's singleton.
 contract ForkTest is ModuleTestBase {
     Deploy internal deploy;
     address internal safe;
@@ -47,24 +45,21 @@ contract ForkTest is ModuleTestBase {
     address internal constant HYDREX_KEEPER = 0x1681b1d40AB2fb81F8a1dd28b56baFfbB869a214;
     bytes32 internal constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
 
-    /// @dev Safe 1.3.0 `GnosisSafeL2`, the EIP-155 deployment.
     address internal constant SAFE_SINGLETON = 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA;
     bytes32 internal constant CONDUIT_CODEHASH = 0x0d67cd335e3ae9cde256cf399f819a3ea2b9c248b0336840a3b20a2ee82c192e;
 
-    /// @dev Friday 2026-09-18, second day of the epoch that started Thursday 2026-09-17 00:00 UTC.
+    // 2026-09-18, in the epoch starting 2026-09-17.
     uint256 internal constant BLOCK = 51_477_372;
     uint256 internal constant EPOCH_START = 1_789_603_200;
     uint256 internal constant CONDUIT_POWER = 901_467_812_512_428_290_739_293;
 
-    /// @dev The block before the keeper's 2026-09-09 vote, tx
-    ///      0x6766749800fbc54c5cf134b3fd15a2456a57115b8319be995a48693406121607, and the votes it recorded.
+    // The block before tx 0x6766749800fbc54c5cf134b3fd15a2456a57115b8319be995a48693406121607 and its votes.
     uint256 internal constant REPLAY_BLOCK = 51_082_978;
     uint256 internal constant REPLAY_EPOCH_START = 1_788_393_600;
     uint256 internal constant REPLAY_POWER = 949_625_930_479_905_743_892_671;
     uint256[3] internal replayVotes =
         [uint256(702_723_188_555_130_250_480_576), 161_436_408_181_583_976_461_754, 85_466_333_743_191_516_950_340];
 
-    /// @dev A Safe-owned veNFT delegated to the conduit.
     uint256 internal constant SAFE_TOKEN_ID = 14_247;
 
     address internal keeper;
@@ -92,7 +87,7 @@ contract ForkTest is ModuleTestBase {
     function _fork(uint256 blockNumber) internal {
         vm.createSelectFork(rpc, blockNumber);
         assertEq(block.chainid, 8453);
-        module = new HydrexCarbonImpactExecutor(safe, conduit, keeper);
+        module = new KlimaVeTokenConduitExecutor(safe, conduit, keeper);
     }
 
     function _grant() internal {
@@ -109,8 +104,6 @@ contract ForkTest is ModuleTestBase {
         _grant();
         _enable();
     }
-
-    // pins
 
     function test_pin_conduitCode() public {
         _fork(BLOCK);
@@ -133,7 +126,7 @@ contract ForkTest is ModuleTestBase {
         Deploy d = new Deploy(); // on the fork; `deploy` from setUp lives on the pre-fork chain
         assertEq(d.predict().code.length, 0, "v1 address already has code");
         assertEq(d.run(), d.predict());
-        assertEq(HydrexCarbonImpactExecutor(d.predict()).KEEPER(), d.keeper());
+        assertEq(KlimaVeTokenConduitExecutor(d.predict()).KEEPER(), d.keeper());
         assertEq(d.keeper(), 0x625CF6663d9D090535FBd57680bFFE6fA0262434);
     }
 
@@ -151,8 +144,6 @@ contract ForkTest is ModuleTestBase {
         assertEq(IVotingEscrow(VE).ownerOf(SAFE_TOKEN_ID), safe);
         assertEq(IVotingEscrow(VE).getLockDelegatee(SAFE_TOKEN_ID), conduit);
     }
-
-    // vote
 
     function test_vote_throughModule() public {
         _fork(BLOCK);
@@ -220,7 +211,7 @@ contract ForkTest is ModuleTestBase {
         _wire();
         address[3] memory callers = [HYDREX_KEEPER, HYDREX_ADMIN, safe];
         for (uint256 i; i < callers.length; ++i) {
-            vm.expectRevert(HydrexCarbonImpactExecutor.NotKeeper.selector);
+            vm.expectRevert(KlimaVeTokenConduitExecutor.NotKeeper.selector);
             vm.prank(callers[i]);
             module.vote(pools, weights);
         }
@@ -255,8 +246,6 @@ contract ForkTest is ModuleTestBase {
         vm.prank(keeper);
         module.vote(onePool, weights);
     }
-
-    // claimSwapAndDistribute
 
     function test_claim_throughModule() public {
         _fork(BLOCK);
@@ -300,7 +289,7 @@ contract ForkTest is ModuleTestBase {
     function test_claim_revertsForNonKeeper() public {
         _fork(BLOCK);
         _wire();
-        vm.expectRevert(HydrexCarbonImpactExecutor.NotKeeper.selector);
+        vm.expectRevert(KlimaVeTokenConduitExecutor.NotKeeper.selector);
         _claim(HYDREX_KEEPER, SAFE_TOKEN_ID);
     }
 

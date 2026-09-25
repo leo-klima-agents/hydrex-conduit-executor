@@ -13,7 +13,7 @@ SPDX-FileCopyrightText = "2021 Gnosis Ltd."
 SPDX-License-Identifier = "LGPL-3.0-only"
 
 [[annotations]]
-path = "test/upstream/keeper-key/*"
+path = "test/upstream/keeper/*"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Léo de Souza"
 SPDX-License-Identifier = "MIT"

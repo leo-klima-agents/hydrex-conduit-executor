@@ -5,7 +5,7 @@ SPDX-License-Identifier: MIT
 
 # Vendored upstream fixtures
 
-Byte-identical copies of the upstream files HydrexCarbonImpactExecutor is built against; `src/` never imports them.
+Byte-identical copies of the upstream files KlimaVeTokenConduitExecutor is built against; `src/` never imports them.
 The Safe files are self-contained and `test/Selectors.t.sol` compiles `ModuleManager.sol` to compare selectors.
 The conduit imports OpenZeppelin and Hydrex interfaces that are not vendored, so `foundry.toml` skips it and the
 test checks its `EXECUTOR_ROLE` members as text.
@@ -17,8 +17,8 @@ test checks its `EXECUTOR_ROLE` members as text.
 | `safe/base/Executor.sol` | safe-global/safe-smart-account `v1.3.0`, `contracts/base/Executor.sol` | LGPL-3.0-only |
 | `safe/common/Enum.sol` | safe-global/safe-smart-account `v1.3.0`, `contracts/common/Enum.sol` | LGPL-3.0-only |
 | `safe/common/SelfAuthorized.sol` | safe-global/safe-smart-account `v1.3.0`, `contracts/common/SelfAuthorized.sol` | LGPL-3.0-only |
-| `keeper-key/keeper.json` | ldeso/hydrex-keeper-key `cdb829a`, `record/keeper.json` | MIT |
-| `keeper-key/keeper.pem` | ldeso/hydrex-keeper-key `cdb829a`, `record/keeper.pem` | MIT |
+| `keeper/keeper.json` | ldeso/hydrex-keeper-key `cdb829a`, `record/keeper.json` | MIT |
+| `keeper/keeper.pem` | ldeso/hydrex-keeper-key `cdb829a`, `record/keeper.pem` | MIT |
 
 - Conduit: verified on Sourcify (creation and runtime exact match, 2026-04-29) with solc `0.8.26+commit.8a97fa7a`,
   `cancun`, optimizer 200 runs, via-IR. Runtime `keccak256` on Base:
@@ -37,8 +37,8 @@ test checks its `EXECUTOR_ROLE` members as text.
 87c8c6cb45069e68dfb58c2347e69b43ab8b5a31f34adcf5c0705b9f595a7815  safe/base/Executor.sol
 9beffe49e2ddcc6548f16883c9333daa607a7d21eda1cc5b7af8cefef034f64c  safe/common/Enum.sol
 24764612bf5539179a07a7655ec6ccb22eab6ffdd0b7c77730c79e1995b64326  safe/common/SelfAuthorized.sol
-0924a6fe71c7e259ad3e8a0398bc7277d63af85ad47520cc3a6f509134cda2de  keeper-key/keeper.json
-37051d3995a3525ed2033b37bf39a91e2d2d826caca177bba63d67a517baab9d  keeper-key/keeper.pem
+0924a6fe71c7e259ad3e8a0398bc7277d63af85ad47520cc3a6f509134cda2de  keeper/keeper.json
+37051d3995a3525ed2033b37bf39a91e2d2d826caca177bba63d67a517baab9d  keeper/keeper.pem
 ```
 
 ## Selectors pinned from these files
@@ -67,10 +67,10 @@ done
 # keeper record
 C=cdb829a
 for f in keeper.json keeper.pem; do
-  curl -sSL -o test/upstream/keeper-key/$f https://raw.githubusercontent.com/ldeso/hydrex-keeper-key/$C/record/$f
+  curl -sSL -o test/upstream/keeper/$f https://raw.githubusercontent.com/ldeso/hydrex-keeper-key/$C/record/$f
 done
 (cd test/upstream && sha256sum hydrex/KlimaVeTokenConduit.sol safe/base/ModuleManager.sol safe/base/Executor.sol \
-  safe/common/Enum.sol safe/common/SelfAuthorized.sol keeper-key/keeper.json keeper-key/keeper.pem > SHA256SUMS)
+  safe/common/Enum.sol safe/common/SelfAuthorized.sol keeper/keeper.json keeper/keeper.pem > SHA256SUMS)
 forge test --match-path 'test/{Selectors,Deploy}.t.sol'
 ```
 

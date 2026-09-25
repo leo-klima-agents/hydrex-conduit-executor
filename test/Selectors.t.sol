@@ -8,7 +8,6 @@ import {IKlimaVeTokenConduit} from "../src/interfaces/IKlimaVeTokenConduit.sol";
 import {ISafeModuleManager} from "../src/interfaces/ISafeModuleManager.sol";
 import {ModuleManager as UpstreamModuleManager} from "./upstream/safe/base/ModuleManager.sol";
 
-/// @notice Pins the three selectors against literals, keccak256, the vendored upstream files and UPSTREAM.md.
 contract SelectorsTest is Test {
     bytes4 internal constant VOTE = 0x6f816a20;
     bytes4 internal constant CLAIM_SWAP_AND_DISTRIBUTE = 0x786fb402;
@@ -63,7 +62,6 @@ contract SelectorsTest is Test {
                 "        uint256 maxKvcmIn\n" "    ) external onlyRole(EXECUTOR_ROLE) {"
             )
         );
-        // No other member of the conduit is gated on EXECUTOR_ROLE.
         assertEq(_count(conduit, "onlyRole(EXECUTOR_ROLE)"), 2);
     }
 

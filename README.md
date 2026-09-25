@@ -5,15 +5,15 @@ SPDX-License-Identifier: MIT
 
 # hydrex-conduit-executor
 
-`HydrexCarbonImpactExecutor` is an immutable Safe module that lets one HSM-held keeper key call two functions on
-Hydrex's Klima "Carbon Impact" conduit on behalf of the Klima Safe, and nothing else. Hydrex grants the conduit's
-`EXECUTOR_ROLE` to the Safe, and a Safe cannot be driven by an EOA on a schedule; this contract bridges the two. It
-has no storage, owner, setters, funds or upgrade path.
+`KlimaVeTokenConduitExecutor` is an immutable Safe module that lets one HSM-held keeper key call two functions on
+Hydrex's `KlimaVeTokenConduit` (the Klima "Carbon Impact" conduit) on behalf of the Klima Safe, and nothing else.
+Hydrex grants the conduit's `EXECUTOR_ROLE` to the Safe, and a Safe cannot be driven by an EOA on a schedule; this
+contract bridges the two. It has no storage, owner, setters, funds or upgrade path.
 
 The key lives in Google Cloud KMS, defined by [hydrex-keeper-key](https://github.com/ldeso/hydrex-keeper-key). The
 keeper service that signs with it is `hydrex-keeper`.
 
-The whole mechanism is `_exec` in [`src/HydrexCarbonImpactExecutor.sol`](src/HydrexCarbonImpactExecutor.sol):
+The whole mechanism is `_exec` in [`src/KlimaVeTokenConduitExecutor.sol`](src/KlimaVeTokenConduitExecutor.sol):
 check `msg.sender == KEEPER`, then `SAFE.execTransactionFromModuleReturnData(CONDUIT, 0, data, Call)` with calldata
 the contract encodes itself. A failed call re-raises the conduit's revert data.
 
@@ -54,16 +54,16 @@ which pools to vote for and when to claim with which swap calldata, within the c
 | `CONDUIT` | [`0xde91885cf35ac57df0c4a75c16862127dbe8317c`](https://basescan.org/address/0xde91885cf35ac57df0c4a75c16862127dbe8317c#code), `KlimaVeTokenConduit`, verified, not upgradeable |
 | `KEEPER` | [`0x625CF6663d9D090535FBd57680bFFE6fA0262434`](https://basescan.org/address/0x625CF6663d9D090535FBd57680bFFE6fA0262434), Cloud KMS HSM key `hydrex-keeper-v1` version 1, from the [record](https://github.com/ldeso/hydrex-keeper-key/blob/cdb829a/record/keeper.json) |
 | Method | CREATE2 through the default deployer `0x4e59b44847b379578588920cA78FbF26c0B4956C` |
-| Salt | `keccak256("klimaprotocol.com/HydrexCarbonImpactExecutor/v1")` |
+| Salt | `keccak256("klimaprotocol.com/KlimaVeTokenConduitExecutor/v1")` |
 
 Not deployed yet; the predicted address is in `verification/bytecode-hashes.json`. `script/Deploy.s.sol` reads
-`KEEPER` from `test/upstream/keeper-key/keeper.json`, a byte-for-byte copy of the hydrex-keeper-key record, and
+`KEEPER` from `test/upstream/keeper/keeper.json`, a byte-for-byte copy of the hydrex-keeper-key record, and
 `test/Deploy.t.sol` and `script/check-verification.sh` re-derive it from the public key vendored next to it.
 
 ```
 forge script script/Deploy.s.sol --rpc-url $BASE_RPC_URL --broadcast --ledger   # or --private-key
-forge verify-contract <address> src/HydrexCarbonImpactExecutor.sol:HydrexCarbonImpactExecutor --chain base --watch
-forge verify-contract <address> src/HydrexCarbonImpactExecutor.sol:HydrexCarbonImpactExecutor --chain base --verifier sourcify
+forge verify-contract <address> src/KlimaVeTokenConduitExecutor.sol:KlimaVeTokenConduitExecutor --chain base --watch
+forge verify-contract <address> src/KlimaVeTokenConduitExecutor.sol:KlimaVeTokenConduitExecutor --chain base --verifier sourcify
 ```
 
 The CREATE2 address depends on the constructor arguments, so a new key or conduit means a new address under a new
