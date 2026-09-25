@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.37;
 
-import {KlimaConduitExecutor} from "../src/KlimaConduitExecutor.sol";
+import {HydrexCarbonImpactExecutor} from "../src/HydrexCarbonImpactExecutor.sol";
 import {IKlimaVeTokenConduit} from "../src/interfaces/IKlimaVeTokenConduit.sol";
 import {MockConduit} from "./mocks/MockConduit.sol";
 import {FailingSafe, MockSafe} from "./mocks/MockSafe.sol";
 import {ModuleTestBase} from "./utils/ModuleTestBase.sol";
 
-contract KlimaConduitExecutorTest is ModuleTestBase {
+contract HydrexCarbonImpactExecutorTest is ModuleTestBase {
     address internal keeper;
     address internal stranger;
 
@@ -23,7 +23,7 @@ contract KlimaConduitExecutorTest is ModuleTestBase {
         stranger = makeAddr("stranger");
         safe = new MockSafe();
         conduit = new MockConduit();
-        module = new KlimaConduitExecutor(address(safe), address(conduit), keeper);
+        module = new HydrexCarbonImpactExecutor(address(safe), address(conduit), keeper);
 
         conduit.grantExecutor(address(safe));
         safe.enableModule(address(module));
@@ -34,9 +34,7 @@ contract KlimaConduitExecutorTest is ModuleTestBase {
         weights.push(26);
     }
 
-    /* ----------------------------------------------------------------------------------------------------------
-                                                    constructor
-    ---------------------------------------------------------------------------------------------------------- */
+    // constructor
 
     function test_constructor_storesImmutables() public view {
         assertEq(module.SAFE(), address(safe));
@@ -45,52 +43,52 @@ contract KlimaConduitExecutorTest is ModuleTestBase {
     }
 
     function test_constructor_revertsZeroSafe() public {
-        vm.expectRevert(KlimaConduitExecutor.ZeroAddress.selector);
-        new KlimaConduitExecutor(address(0), address(conduit), keeper);
+        vm.expectRevert(HydrexCarbonImpactExecutor.ZeroAddress.selector);
+        new HydrexCarbonImpactExecutor(address(0), address(conduit), keeper);
     }
 
     function test_constructor_revertsZeroConduit() public {
-        vm.expectRevert(KlimaConduitExecutor.ZeroAddress.selector);
-        new KlimaConduitExecutor(address(safe), address(0), keeper);
+        vm.expectRevert(HydrexCarbonImpactExecutor.ZeroAddress.selector);
+        new HydrexCarbonImpactExecutor(address(safe), address(0), keeper);
     }
 
     function test_constructor_revertsZeroKeeper() public {
-        vm.expectRevert(KlimaConduitExecutor.ZeroAddress.selector);
-        new KlimaConduitExecutor(address(safe), address(conduit), address(0));
+        vm.expectRevert(HydrexCarbonImpactExecutor.ZeroAddress.selector);
+        new HydrexCarbonImpactExecutor(address(safe), address(conduit), address(0));
     }
 
     function test_constructor_revertsSafeWithoutCode() public {
-        vm.expectRevert(KlimaConduitExecutor.NotAContract.selector);
-        new KlimaConduitExecutor(makeAddr("eoa"), address(conduit), keeper);
+        vm.expectRevert(HydrexCarbonImpactExecutor.NotAContract.selector);
+        new HydrexCarbonImpactExecutor(makeAddr("eoa"), address(conduit), keeper);
     }
 
     function test_constructor_revertsConduitWithoutCode() public {
-        vm.expectRevert(KlimaConduitExecutor.NotAContract.selector);
-        new KlimaConduitExecutor(address(safe), makeAddr("eoa"), keeper);
+        vm.expectRevert(HydrexCarbonImpactExecutor.NotAContract.selector);
+        new HydrexCarbonImpactExecutor(address(safe), makeAddr("eoa"), keeper);
     }
 
     function test_constructor_zeroCheckedBeforeCode() public {
-        vm.expectRevert(KlimaConduitExecutor.ZeroAddress.selector);
-        new KlimaConduitExecutor(address(0), makeAddr("eoa"), keeper);
+        vm.expectRevert(HydrexCarbonImpactExecutor.ZeroAddress.selector);
+        new HydrexCarbonImpactExecutor(address(0), makeAddr("eoa"), keeper);
     }
 
     function test_constructor_keeperMayBeAnyNonZeroAddress() public {
-        KlimaConduitExecutor m = new KlimaConduitExecutor(address(safe), address(conduit), address(conduit));
+        HydrexCarbonImpactExecutor m = new HydrexCarbonImpactExecutor(address(safe), address(conduit), address(conduit));
         assertEq(m.KEEPER(), address(conduit));
     }
 
     function testFuzz_constructor(address s, address c, address k) public {
         if (s == address(0) || c == address(0) || k == address(0)) {
-            vm.expectRevert(KlimaConduitExecutor.ZeroAddress.selector);
-            new KlimaConduitExecutor(s, c, k);
+            vm.expectRevert(HydrexCarbonImpactExecutor.ZeroAddress.selector);
+            new HydrexCarbonImpactExecutor(s, c, k);
             return;
         }
         if (s.code.length == 0 || c.code.length == 0) {
-            vm.expectRevert(KlimaConduitExecutor.NotAContract.selector);
-            new KlimaConduitExecutor(s, c, k);
+            vm.expectRevert(HydrexCarbonImpactExecutor.NotAContract.selector);
+            new HydrexCarbonImpactExecutor(s, c, k);
             return;
         }
-        KlimaConduitExecutor m = new KlimaConduitExecutor(s, c, k);
+        HydrexCarbonImpactExecutor m = new HydrexCarbonImpactExecutor(s, c, k);
         assertEq(m.SAFE(), s);
         assertEq(m.CONDUIT(), c);
         assertEq(m.KEEPER(), k);
@@ -100,15 +98,13 @@ contract KlimaConduitExecutorTest is ModuleTestBase {
         vm.assume(k != address(0));
         MockSafe s = new MockSafe{salt: saltA}();
         MockConduit c = new MockConduit{salt: saltB}();
-        KlimaConduitExecutor m = new KlimaConduitExecutor(address(s), address(c), k);
+        HydrexCarbonImpactExecutor m = new HydrexCarbonImpactExecutor(address(s), address(c), k);
         assertEq(m.SAFE(), address(s));
         assertEq(m.CONDUIT(), address(c));
         assertEq(m.KEEPER(), k);
     }
 
-    /* ----------------------------------------------------------------------------------------------------------
-                                                       vote
-    ---------------------------------------------------------------------------------------------------------- */
+    // vote
 
     function test_vote_keeperReachesConduitThroughSafe() public {
         vm.expectEmit(address(safe));
@@ -149,7 +145,7 @@ contract KlimaConduitExecutorTest is ModuleTestBase {
     }
 
     function test_vote_revertsForStranger() public {
-        vm.expectRevert(KlimaConduitExecutor.NotKeeper.selector);
+        vm.expectRevert(HydrexCarbonImpactExecutor.NotKeeper.selector);
         vm.prank(stranger);
         module.vote(pools, weights);
         assertEq(conduit.voteCalls(), 0);
@@ -157,20 +153,20 @@ contract KlimaConduitExecutorTest is ModuleTestBase {
     }
 
     function test_vote_revertsForSafeItself() public {
-        vm.expectRevert(KlimaConduitExecutor.NotKeeper.selector);
+        vm.expectRevert(HydrexCarbonImpactExecutor.NotKeeper.selector);
         vm.prank(address(safe));
         module.vote(pools, weights);
     }
 
     function test_vote_revertsForConduit() public {
-        vm.expectRevert(KlimaConduitExecutor.NotKeeper.selector);
+        vm.expectRevert(HydrexCarbonImpactExecutor.NotKeeper.selector);
         vm.prank(address(conduit));
         module.vote(pools, weights);
     }
 
     function testFuzz_vote_revertsForAnyNonKeeper(address caller) public {
         vm.assume(caller != keeper);
-        vm.expectRevert(KlimaConduitExecutor.NotKeeper.selector);
+        vm.expectRevert(HydrexCarbonImpactExecutor.NotKeeper.selector);
         vm.prank(caller);
         module.vote(pools, weights);
         assertEq(safe.execCalls(), 0);
@@ -212,17 +208,17 @@ contract KlimaConduitExecutorTest is ModuleTestBase {
 
     function test_vote_emptyConduitRevertBecomesExecutionFailed() public {
         conduit.revertWith("");
-        vm.expectRevert(KlimaConduitExecutor.ExecutionFailed.selector);
+        vm.expectRevert(HydrexCarbonImpactExecutor.ExecutionFailed.selector);
         vm.prank(keeper);
         module.vote(pools, weights);
     }
 
     function test_vote_safeReturningFalseReverts() public {
         FailingSafe failing = new FailingSafe();
-        KlimaConduitExecutor m = new KlimaConduitExecutor(address(failing), address(conduit), keeper);
+        HydrexCarbonImpactExecutor m = new HydrexCarbonImpactExecutor(address(failing), address(conduit), keeper);
         failing.enableModule(address(m));
 
-        vm.expectRevert(KlimaConduitExecutor.ExecutionFailed.selector);
+        vm.expectRevert(HydrexCarbonImpactExecutor.ExecutionFailed.selector);
         vm.prank(keeper);
         m.vote(pools, weights);
         assertEq(conduit.voteCalls(), 0);
@@ -236,9 +232,7 @@ contract KlimaConduitExecutorTest is ModuleTestBase {
         assertEq(conduit.voteCalls(), 0);
     }
 
-    /* ----------------------------------------------------------------------------------------------------------
-                                              claimSwapAndDistribute
-    ---------------------------------------------------------------------------------------------------------- */
+    // claimSwapAndDistribute
 
     function test_claim_keeperReachesConduitThroughSafe() public {
         address[] memory targets = new address[](1);
@@ -298,7 +292,7 @@ contract KlimaConduitExecutorTest is ModuleTestBase {
     }
 
     function test_claim_revertsForStranger() public {
-        vm.expectRevert(KlimaConduitExecutor.NotKeeper.selector);
+        vm.expectRevert(HydrexCarbonImpactExecutor.NotKeeper.selector);
         _claim(stranger, 1);
         assertEq(conduit.claimCalls(), 0);
         assertEq(safe.execCalls(), 0);
@@ -306,7 +300,7 @@ contract KlimaConduitExecutorTest is ModuleTestBase {
 
     function testFuzz_claim_revertsForAnyNonKeeper(address caller) public {
         vm.assume(caller != keeper);
-        vm.expectRevert(KlimaConduitExecutor.NotKeeper.selector);
+        vm.expectRevert(HydrexCarbonImpactExecutor.NotKeeper.selector);
         _claim(caller, 1);
     }
 
@@ -329,16 +323,16 @@ contract KlimaConduitExecutorTest is ModuleTestBase {
 
     function test_claim_emptyConduitRevertBecomesExecutionFailed() public {
         conduit.revertWith("");
-        vm.expectRevert(KlimaConduitExecutor.ExecutionFailed.selector);
+        vm.expectRevert(HydrexCarbonImpactExecutor.ExecutionFailed.selector);
         _claim(keeper, 1);
     }
 
     function test_claim_safeReturningFalseReverts() public {
         FailingSafe failing = new FailingSafe();
-        KlimaConduitExecutor m = new KlimaConduitExecutor(address(failing), address(conduit), keeper);
+        HydrexCarbonImpactExecutor m = new HydrexCarbonImpactExecutor(address(failing), address(conduit), keeper);
         failing.enableModule(address(m));
 
-        vm.expectRevert(KlimaConduitExecutor.ExecutionFailed.selector);
+        vm.expectRevert(HydrexCarbonImpactExecutor.ExecutionFailed.selector);
         vm.prank(keeper);
         m.claimSwapAndDistribute(
             1, new address[](0), new bytes[](0), new address[](0), new address[](0), new address[](0), 0, 0
@@ -351,9 +345,7 @@ contract KlimaConduitExecutorTest is ModuleTestBase {
         _claim(keeper, 1);
     }
 
-    /* ----------------------------------------------------------------------------------------------------------
-                                                   surface
-    ---------------------------------------------------------------------------------------------------------- */
+    // surface
 
     function test_surface_rejectsPlainEth() public {
         vm.deal(stranger, 1 ether);
@@ -366,7 +358,7 @@ contract KlimaConduitExecutorTest is ModuleTestBase {
     function test_surface_rejectsEthWithCall() public {
         vm.deal(keeper, 1 ether);
         vm.prank(keeper);
-        (bool ok,) = address(module).call{value: 1}(abi.encodeCall(KlimaConduitExecutor.vote, (pools, weights)));
+        (bool ok,) = address(module).call{value: 1}(abi.encodeCall(HydrexCarbonImpactExecutor.vote, (pools, weights)));
         assertFalse(ok);
         assertEq(address(module).balance, 0);
         assertEq(conduit.voteCalls(), 0);
@@ -380,8 +372,8 @@ contract KlimaConduitExecutorTest is ModuleTestBase {
     }
 
     function testFuzz_surface_rejectsUnknownSelector(bytes4 selector, bytes memory tail) public {
-        vm.assume(selector != KlimaConduitExecutor.vote.selector);
-        vm.assume(selector != KlimaConduitExecutor.claimSwapAndDistribute.selector);
+        vm.assume(selector != HydrexCarbonImpactExecutor.vote.selector);
+        vm.assume(selector != HydrexCarbonImpactExecutor.claimSwapAndDistribute.selector);
         vm.assume(selector != bytes4(keccak256("SAFE()")));
         vm.assume(selector != bytes4(keccak256("CONDUIT()")));
         vm.assume(selector != bytes4(keccak256("KEEPER()")));

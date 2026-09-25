@@ -2,22 +2,17 @@
 # SPDX-License-Identifier: MIT
 
 [profile.default]
-# The conduit was compiled with 0.8.26/cancun; this contract shares nothing with it but two selectors,
-# so it tracks the current solc release instead, as relay-fee-skim does. Bump the pragmas with it.
 solc_version = "0.8.37"
 evm_version = "prague"
 optimizer = true
 optimizer_runs = 1_000_000
-# claimSwapAndDistribute decodes six dynamic arrays and three words; the legacy codegen runs out of stack on that
-# signature (the conduit was built via-IR for the same reason).
+# The eight-argument claim signature is too deep for the legacy codegen.
 via_ir = true
 bytecode_hash = "ipfs"
 cbor_metadata = true
-# solc bakes remappings into the metadata hash. Pinned so a library added to lib/ later does not change the
-# bytecode of a contract that imports nothing from lib/.
+# Remappings are hashed into the metadata; pinned so adding a library does not change the bytecode.
 remappings = ["forge-std/=lib/forge-std/src/"]
-# The vendored conduit imports OpenZeppelin and Hydrex interfaces that are not part of this repo; Selectors.t.sol
-# checks it as text. The vendored Safe files are self-contained and compile.
+# Imports OpenZeppelin and Hydrex files that are not vendored; Selectors.t.sol reads it as text.
 skip = ["test/upstream/hydrex/KlimaVeTokenConduit.sol"]
 fs_permissions = [
   { access = "read", path = "./test/upstream" },
@@ -31,52 +26,33 @@ runs = 10_000
 [fmt]
 ignore = ["./test/upstream/**/*.sol", "lib/**"]
 
-# `forge lint src` under this profile: nothing but the one lint the contract genuinely needs is excluded, so the
-# test-only exclusions below never hide a defect in src/.
+# `forge lint src` without the test-only exclusions below.
 [profile.strict.lint]
 exclude_lints = [
-  # inline assembly: re-raising the conduit's revert data needs `revert(ptr, len)`
-  "inline-assembly",
+  "inline-assembly", # re-raising revert data needs `revert(ptr, len)`
 ]
 
 [lint]
 ignore = ["test/upstream/**/*.sol"]
 exclude_lints = [
-  # src/KlimaConduitExecutor.sol
-  # inline assembly: re-raising the conduit's revert data needs `revert(ptr, len)`
-  "inline-assembly",
+  "inline-assembly", # src: re-raising revert data needs `revert(ptr, len)`
 
-  # tests and scripts
-  # a narrowing cast: bytes4(keccak256(signature)) is how a selector is defined
+  # tests, scripts and mocks
   "unsafe-typecast",
-  # ignored return values: calls under vm.expectRevert have none worth reading
   "unused-return",
-  # readFile, writeJson, etch, createSelectFork: the point of the hashes script, the deploy and fork tests
   "unsafe-cheatcode",
-  # repeated literals: test values read better than named constants
   "literal-instead-of-constant",
-  # a raw .call: the mocks and the ETH-rejection test need one
   "low-level-calls",
-  # locals without an initializer: loop flags and counters rely on zero defaults
   "uninitialized-local",
-  # external calls inside a loop: assertions over the three voted pools
   "calls-loop",
-  # events emitted after external calls: vm.expectEmit declarations and the mock Safe's outcome events
   "reentrancy-events",
-  # ETH sent to a test-chosen destination: the ETH-rejection tests and the mock Safe's `call{value}`
   "arbitrary-send-eth",
-
-  # test/mocks
-  # several contracts per file, mocks not inheriting the interfaces they mimic
   "multi-contract-file",
   "missing-inheritance",
-  # payable functions with no withdrawal, an empty function body, unchecked addresses
   "locked-ether",
   "empty-block",
   "missing-zero-check",
-  # the mock Safe mirrors ModuleManager: delegatecall to a caller-chosen target, `return (false, "")`
   "controlled-delegatecall",
   "boolean-cst",
-  # `lastSender` is a recorder, not an access-control variable
   "missing-events-access-control",
 ]

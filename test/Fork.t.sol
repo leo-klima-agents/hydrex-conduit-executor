@@ -5,7 +5,7 @@ pragma solidity 0.8.37;
 import {Vm} from "forge-std/Test.sol";
 
 import {Deploy} from "../script/Deploy.s.sol";
-import {KlimaConduitExecutor} from "../src/KlimaConduitExecutor.sol";
+import {HydrexCarbonImpactExecutor} from "../src/HydrexCarbonImpactExecutor.sol";
 import {IKlimaVeTokenConduit} from "../src/interfaces/IKlimaVeTokenConduit.sol";
 import {ModuleTestBase} from "./utils/ModuleTestBase.sol";
 
@@ -35,11 +35,9 @@ interface IVotingEscrow {
     function ownerOf(uint256 tokenId) external view returns (address);
 }
 
-/// @notice Base mainnet, gated on `BASE_RPC_URL`. Wires the live Safe and conduit the way the README describes
-///         (Hydrex grants, the Safe enables, the keeper calls) and checks the effect on the live Voter. Pins the
-///         conduit's code and the Safe's singleton so an upgrade or migration on either side fails CI.
+/// @notice Base mainnet, skipped without `BASE_RPC_URL`: Hydrex grants, the Safe enables, the keeper calls, and the
+///         live Voter records the vote. Pins the conduit's code and the Safe's singleton.
 contract ForkTest is ModuleTestBase {
-    /// @dev The deployment targets come from the deploy script so the two cannot drift apart.
     Deploy internal deploy;
     address internal safe;
     address internal conduit;
@@ -94,7 +92,7 @@ contract ForkTest is ModuleTestBase {
     function _fork(uint256 blockNumber) internal {
         vm.createSelectFork(rpc, blockNumber);
         assertEq(block.chainid, 8453);
-        module = new KlimaConduitExecutor(safe, conduit, keeper);
+        module = new HydrexCarbonImpactExecutor(safe, conduit, keeper);
     }
 
     function _grant() internal {
@@ -112,9 +110,7 @@ contract ForkTest is ModuleTestBase {
         _enable();
     }
 
-    /* ----------------------------------------------------------------------------------------------------------
-                                                       pins
-    ---------------------------------------------------------------------------------------------------------- */
+    // pins
 
     function test_pin_conduitCode() public {
         _fork(BLOCK);
@@ -137,7 +133,7 @@ contract ForkTest is ModuleTestBase {
         Deploy d = new Deploy(); // on the fork; `deploy` from setUp lives on the pre-fork chain
         assertEq(d.predict().code.length, 0, "v1 address already has code");
         assertEq(d.run(), d.predict());
-        assertEq(KlimaConduitExecutor(d.predict()).KEEPER(), d.keeper());
+        assertEq(HydrexCarbonImpactExecutor(d.predict()).KEEPER(), d.keeper());
         assertEq(d.keeper(), 0x625CF6663d9D090535FBd57680bFFE6fA0262434);
     }
 
@@ -156,9 +152,7 @@ contract ForkTest is ModuleTestBase {
         assertEq(IVotingEscrow(VE).getLockDelegatee(SAFE_TOKEN_ID), conduit);
     }
 
-    /* ----------------------------------------------------------------------------------------------------------
-                                                       vote
-    ---------------------------------------------------------------------------------------------------------- */
+    // vote
 
     function test_vote_throughModule() public {
         _fork(BLOCK);
@@ -226,7 +220,7 @@ contract ForkTest is ModuleTestBase {
         _wire();
         address[3] memory callers = [HYDREX_KEEPER, HYDREX_ADMIN, safe];
         for (uint256 i; i < callers.length; ++i) {
-            vm.expectRevert(KlimaConduitExecutor.NotKeeper.selector);
+            vm.expectRevert(HydrexCarbonImpactExecutor.NotKeeper.selector);
             vm.prank(callers[i]);
             module.vote(pools, weights);
         }
@@ -262,9 +256,7 @@ contract ForkTest is ModuleTestBase {
         module.vote(onePool, weights);
     }
 
-    /* ----------------------------------------------------------------------------------------------------------
-                                              claimSwapAndDistribute
-    ---------------------------------------------------------------------------------------------------------- */
+    // claimSwapAndDistribute
 
     function test_claim_throughModule() public {
         _fork(BLOCK);
@@ -308,7 +300,7 @@ contract ForkTest is ModuleTestBase {
     function test_claim_revertsForNonKeeper() public {
         _fork(BLOCK);
         _wire();
-        vm.expectRevert(KlimaConduitExecutor.NotKeeper.selector);
+        vm.expectRevert(HydrexCarbonImpactExecutor.NotKeeper.selector);
         _claim(HYDREX_KEEPER, SAFE_TOKEN_ID);
     }
 

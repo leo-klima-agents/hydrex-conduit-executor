@@ -5,9 +5,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-ARTIFACT=out/KlimaConduitExecutor.sol/KlimaConduitExecutor.json
+ARTIFACT=out/HydrexCarbonImpactExecutor.sol/HydrexCarbonImpactExecutor.json
 HASHES=verification/bytecode-hashes.json
-INPUT=verification/KlimaConduitExecutor.standard-input.json
+INPUT=verification/HydrexCarbonImpactExecutor.standard-input.json
 [ -f "$ARTIFACT" ] || { echo "::error::$ARTIFACT missing; run forge build" >&2; exit 1; }
 [ -f "$HASHES" ] || { echo "::error::$HASHES missing; run script/refresh-verification.sh" >&2; exit 1; }
 [ -f "$INPUT" ] || { echo "::error::$INPUT missing; run script/refresh-verification.sh" >&2; exit 1; }
@@ -52,7 +52,7 @@ expect .deployment.address "$(cast create2 --deployer "$(jq -r .create2Deployer 
 
 # Everything solc reads, so a settings change in foundry.toml that verifiers must know about fails here.
 projection='del(.settings.outputSelection)'
-current=$(forge verify-contract --show-standard-json-input 0x0000000000000000000000000000000000000001 src/KlimaConduitExecutor.sol:KlimaConduitExecutor | jq -S "$projection")
+current=$(forge verify-contract --show-standard-json-input 0x0000000000000000000000000000000000000001 src/HydrexCarbonImpactExecutor.sol:HydrexCarbonImpactExecutor | jq -S "$projection")
 if [ "$current" != "$(jq -S "$projection" "$INPUT")" ]; then
   echo "::error::$INPUT is stale" >&2
   status=1

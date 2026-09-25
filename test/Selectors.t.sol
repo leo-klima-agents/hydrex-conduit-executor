@@ -8,8 +8,7 @@ import {IKlimaVeTokenConduit} from "../src/interfaces/IKlimaVeTokenConduit.sol";
 import {ISafeModuleManager} from "../src/interfaces/ISafeModuleManager.sol";
 import {ModuleManager as UpstreamModuleManager} from "./upstream/safe/base/ModuleManager.sol";
 
-/// @notice Pins the two conduit selectors and the Safe selector against literals, keccak256 of the signatures,
-///         the vendored upstream files (compiled where possible, otherwise as text) and the table in UPSTREAM.md.
+/// @notice Pins the three selectors against literals, keccak256, the vendored upstream files and UPSTREAM.md.
 contract SelectorsTest is Test {
     bytes4 internal constant VOTE = 0x6f816a20;
     bytes4 internal constant CLAIM_SWAP_AND_DISTRIBUTE = 0x786fb402;

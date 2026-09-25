@@ -5,12 +5,10 @@ pragma solidity 0.8.37;
 import {IKlimaVeTokenConduit} from "./interfaces/IKlimaVeTokenConduit.sol";
 import {ISafeModuleManager} from "./interfaces/ISafeModuleManager.sol";
 
-/// @title KlimaConduitExecutor
-/// @notice Safe module that lets one keeper key call `vote` and `claimSwapAndDistribute` on one Hydrex conduit
-///         on the Safe's behalf, and nothing else. Every call is a plain `Call` to `CONDUIT` with zero value and
-///         calldata this contract encodes itself. No storage, no owner, no upgrade path, no ETH. Implements
-///         `IKlimaVeTokenConduit` so the two signatures are the conduit's by construction.
-contract KlimaConduitExecutor is IKlimaVeTokenConduit {
+/// @title HydrexCarbonImpactExecutor
+/// @notice Safe module that lets `KEEPER` call `vote` and `claimSwapAndDistribute` on `CONDUIT` as the Safe, and
+///         nothing else.
+contract HydrexCarbonImpactExecutor is IKlimaVeTokenConduit {
     address public immutable SAFE;
     address public immutable CONDUIT;
     address public immutable KEEPER;
@@ -20,8 +18,7 @@ contract KlimaConduitExecutor is IKlimaVeTokenConduit {
     error NotKeeper();
     error ExecutionFailed();
 
-    /// @dev `safe` and `conduit` must hold code: a `Call` to an empty address succeeds silently, so a mistyped
-    ///      conduit would make every vote a no-op that reports success.
+    /// @dev A `Call` to an address without code succeeds silently, so `safe` and `conduit` must be contracts.
     constructor(address safe, address conduit, address keeper) {
         if (safe == address(0) || conduit == address(0) || keeper == address(0)) revert ZeroAddress();
         if (safe.code.length == 0 || conduit.code.length == 0) revert NotAContract();
@@ -30,13 +27,10 @@ contract KlimaConduitExecutor is IKlimaVeTokenConduit {
         KEEPER = keeper;
     }
 
-    /// @notice `CONDUIT.vote(pools, weights)` from the Safe. The Voter checks gauge liveness and voting power.
     function vote(address[] calldata pools, uint256[] calldata weights) external {
         _exec(abi.encodeCall(IKlimaVeTokenConduit.vote, (pools, weights)));
     }
 
-    /// @notice `CONDUIT.claimSwapAndDistribute(...)` from the Safe. The conduit checks routers, output tokens
-    ///         and the recipient; rewards never pass through this contract or the Safe.
     function claimSwapAndDistribute(
         uint256 veTokenId,
         address[] calldata targets,
@@ -55,9 +49,7 @@ contract KlimaConduitExecutor is IKlimaVeTokenConduit {
         );
     }
 
-    /// @dev Keeper gate, then `Call` to `CONDUIT` through the Safe. A failed call re-raises the conduit's own
-    ///      revert data; a failure without data becomes `ExecutionFailed`. The Safe's own reverts, such as
-    ///      `GS104` when this module is not enabled, propagate unchanged.
+    /// @dev Re-raises the conduit's revert data, or `ExecutionFailed` if there is none.
     function _exec(bytes memory data) internal {
         if (msg.sender != KEEPER) revert NotKeeper();
         (bool ok, bytes memory ret) = ISafeModuleManager(SAFE).execTransactionFromModuleReturnData(CONDUIT, 0, data, 0);

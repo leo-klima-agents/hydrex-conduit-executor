@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.37;
 
-/// @notice Records what reaches the conduit. Mirrors the OpenZeppelin v5 `onlyRole(EXECUTOR_ROLE)` gate and the
-///         conduit's `Pools/weights length mismatch` check; a `revertWith` mode replays any revert data so the
-///         module's bubbling can be tested against custom errors, strings and empty reverts.
+/// @notice Records what reaches the conduit, with the conduit's role gate and length check. `revertWith` replays
+///         arbitrary revert data.
 contract MockConduit {
     bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
 

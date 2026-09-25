@@ -5,63 +5,45 @@ SPDX-License-Identifier: MIT
 
 # hydrex-conduit-executor
 
-`KlimaConduitExecutor`, a 70-line immutable Safe module that lets one HSM-held keeper key call two functions on
+`HydrexCarbonImpactExecutor` is an immutable Safe module that lets one HSM-held keeper key call two functions on
 Hydrex's Klima "Carbon Impact" conduit on behalf of the Klima Safe, and nothing else. Hydrex grants the conduit's
-`EXECUTOR_ROLE` to the Safe rather than to a key; a Safe cannot be driven by an EOA on a schedule; this contract
-is the bridge. It holds no funds, has no storage, no owner, no setters and no upgrade path.
+`EXECUTOR_ROLE` to the Safe, and a Safe cannot be driven by an EOA on a schedule; this contract bridges the two. It
+has no storage, owner, setters, funds or upgrade path.
 
-The key lives in Google Cloud KMS and is defined by [hydrex-keeper-key](https://github.com/ldeso/hydrex-keeper-key),
-which publishes its address as a record this repo vendors. The keeper service that signs with it is
-`hydrex-keeper`.
+The key lives in Google Cloud KMS, defined by [hydrex-keeper-key](https://github.com/ldeso/hydrex-keeper-key). The
+keeper service that signs with it is `hydrex-keeper`.
 
-The whole mechanism is `_exec` in [`src/KlimaConduitExecutor.sol`](src/KlimaConduitExecutor.sol): check
-`msg.sender == KEEPER`, ABI-encode the identical call to `CONDUIT`, and hand it to
-`SAFE.execTransactionFromModuleReturnData(CONDUIT, 0, data, Call)`. A failed call re-raises the conduit's own
-revert data so the keeper sees the real reason.
+The whole mechanism is `_exec` in [`src/HydrexCarbonImpactExecutor.sol`](src/HydrexCarbonImpactExecutor.sol):
+check `msg.sender == KEEPER`, then `SAFE.execTransactionFromModuleReturnData(CONDUIT, 0, data, Call)` with calldata
+the contract encodes itself. A failed call re-raises the conduit's revert data.
 
-## What it can do to the Safe
+## What it can do
 
-It asks the Safe for exactly two calls, both plain `Call`s to the one fixed `CONDUIT` with zero value.
+- `vote(pools, weights)`: the conduit forwards it to Hydrex's Voter, which checks gauge liveness and the conduit's
+  delegated voting power.
+- `claimSwapAndDistribute(tokenId, targets, swaps, fees, bribes, claimTokens, retireTonnes, maxKvcmIn)`: the conduit
+  claims one delegator's rewards, swaps them through its approved routers, optionally retires carbon and pays the
+  veNFT owner or their payout recipient. Nothing passes through this contract or the Safe.
 
-- `vote(pools, weights)`, which the conduit forwards to Hydrex's Voter as `Voter.vote(pools, weights)`. The
-  Voter reads the conduit's delegated earning power at the epoch start, rejects dead gauges and votes that
-  exceed that power, and attributes every reward to the delegators' veNFTs.
-- `claimSwapAndDistribute(tokenId, targets, swaps, fees, bribes, claimTokens, retireTonnes, maxKvcmIn)`, which
-  claims one delegator's rewards into the conduit, swaps them through the conduit's approved routers into its
-  distribution tokens, optionally retires carbon, and pays the veNFT owner or their configured payout
-  recipient. The conduit checks the routers, requires an output-token balance increase per swap and bounds
-  the retirement; nothing passes through this contract or the Safe.
-
-Both entrypoints revert with `NotKeeper()` for any other caller. The module is bound to the conduit twice:
-by the `CONDUIT` immutable and by the eight-argument `KlimaVeTokenConduit` claim signature.
+Any other caller gets `NotKeeper()`.
 
 ## What it cannot do
 
-- **Call anything else.** `to` is always `CONDUIT`, `value` is always zero, `operation` is always `Call`,
-  and the calldata is one of two selectors this contract encodes itself. The Safe's owners, its other
-  assets and the Safe configuration are out of reach; there is no `delegatecall` path.
-- **Be administered or upgraded.** No owner, no setters, no proxy, no `receive`, no `fallback`, no storage.
-  The three addresses are immutables set once by the constructor, which rejects zeros and requires code at
-  `SAFE` and `CONDUIT`, since a `Call` to an empty address would succeed silently.
-- **Widen its own permissions.** Whether the Safe may call the conduit is the conduit's `EXECUTOR_ROLE`,
-  granted and revoked by Hydrex's `DEFAULT_ADMIN_ROLE`. Whether this module may act for the Safe is the
-  Safe's module list, changed only by a Safe transaction. Either side can cut it off; the module cannot
-  restore itself.
-- **Lose the keeper's reason.** A conduit or Voter revert comes back with its original data. A failure without
-  data becomes `ExecutionFailed()`. The Safe's own reverts, such as `GS104` when the module is not enabled,
-  propagate unchanged.
-- **Be reentered to any effect.** There is no lock because there is nothing to protect: both entrypoints
-  are keeper-gated, a hostile token reached through a swap cannot call as the keeper, and the module has no
-  state.
-- **Hold ETH or tokens.** Plain transfers and value-carrying calls revert. Rewards flow from the bribe
-  contracts to the conduit to the recipient; the module and the Safe never touch them.
+- **Call anything else.** `to` is always `CONDUIT`, `value` zero, `operation` `Call`, and the calldata one of two
+  selectors. No `delegatecall` path; the Safe's owners, assets and configuration are out of reach.
+- **Be administered.** No owner, setters, proxy, `receive`, `fallback` or storage. The constructor rejects zero
+  addresses and requires code at `SAFE` and `CONDUIT`, since a `Call` to an empty address succeeds silently.
+- **Widen its permissions.** Hydrex controls `EXECUTOR_ROLE` on the conduit; the Safe owners control the module
+  list. Either side can cut it off.
+- **Hold funds.** Plain transfers and value-carrying calls revert.
+
+Reentrancy needs no lock: both entrypoints are keeper-gated and the module has no state.
 
 ## Trust boundaries that stay with Hydrex
 
-The conduit's admin can change distribution tokens, routers, retirement config, treasury fee (at most 1%),
-payout recipients and can withdraw stray balances. None of that runs through this module, and none of it is
-reachable from the keeper. The keeper key can only choose *which pools to vote for* and *when to run a claim
-with which swap calldata*, both within the conduit's and Voter's own checks.
+The conduit's admin can change distribution tokens, routers, retirement config, treasury fee (at most 1%) and
+payout recipients, and can withdraw stray balances. None of that is reachable from the keeper, which only chooses
+which pools to vote for and when to claim with which swap calldata, within the conduit's and Voter's checks.
 
 ## Deployment
 
@@ -72,95 +54,61 @@ with which swap calldata*, both within the conduit's and Voter's own checks.
 | `CONDUIT` | [`0xde91885cf35ac57df0c4a75c16862127dbe8317c`](https://basescan.org/address/0xde91885cf35ac57df0c4a75c16862127dbe8317c#code), `KlimaVeTokenConduit`, verified, not upgradeable |
 | `KEEPER` | [`0x625CF6663d9D090535FBd57680bFFE6fA0262434`](https://basescan.org/address/0x625CF6663d9D090535FBd57680bFFE6fA0262434), Cloud KMS HSM key `hydrex-keeper-v1` version 1, from the [record](https://github.com/ldeso/hydrex-keeper-key/blob/cdb829a/record/keeper.json) |
 | Method | CREATE2 through the default deployer `0x4e59b44847b379578588920cA78FbF26c0B4956C` |
-| Salt | `keccak256("klimaprotocol.com/KlimaConduitExecutor/v1")` |
+| Salt | `keccak256("klimaprotocol.com/HydrexCarbonImpactExecutor/v1")` |
 
-Not deployed yet. `KEEPER` is not written anywhere in this repo: `script/Deploy.s.sol` reads it from
-`test/upstream/keeper-key/keeper.json`, a byte-for-byte copy of the record hydrex-keeper-key committed, and both
-`test/Deploy.t.sol` and `script/check-verification.sh` re-derive the address from the public key vendored next to
-it. To deploy:
+Not deployed yet; the predicted address is in `verification/bytecode-hashes.json`. `script/Deploy.s.sol` reads
+`KEEPER` from `test/upstream/keeper-key/keeper.json`, a byte-for-byte copy of the hydrex-keeper-key record, and
+`test/Deploy.t.sol` and `script/check-verification.sh` re-derive it from the public key vendored next to it.
 
 ```
 forge script script/Deploy.s.sol --rpc-url $BASE_RPC_URL --broadcast --ledger   # or --private-key
-forge verify-contract <address> src/KlimaConduitExecutor.sol:KlimaConduitExecutor --chain base --watch
-forge verify-contract <address> src/KlimaConduitExecutor.sol:KlimaConduitExecutor --chain base --verifier sourcify
+forge verify-contract <address> src/HydrexCarbonImpactExecutor.sol:HydrexCarbonImpactExecutor --chain base --watch
+forge verify-contract <address> src/HydrexCarbonImpactExecutor.sol:HydrexCarbonImpactExecutor --chain base --verifier sourcify
 ```
 
-The address is recorded in `verification/bytecode-hashes.json`. `test/Deploy.t.sol` pins the record to the
-constants in `script/Deploy.s.sol` and the vendored keeper record, including the runtime hash, and
-`script/check-verification.sh` reads the same constants from the script text and the same address from the
-public key. The CREATE2 address is a function of the constructor arguments, so a new key means a new address
-under a new salt.
+The CREATE2 address depends on the constructor arguments, so a new key or conduit means a new address under a new
+salt. After changing the source or `script/Deploy.s.sol`, run `script/refresh-verification.sh`.
 
 ## Wiring, outside this repo
 
-1. **Hydrex** grants the role: `conduit.grantRole(EXECUTOR_ROLE, SAFE)` from the admin EOA
-   `0x74266f2b206d1359b83fc74949ef07176fb3ae03`. `EXECUTOR_ROLE` is `keccak256("EXECUTOR_ROLE")`. Hydrex may
-   also revoke its outgoing keeper `0x1681b1d40ab2fb81f8a1dd28b56baffbb869a214`.
-2. **The Safe owners** send one Safe transaction: `enableModule(<module address>)` to the Safe itself.
-3. **hydrex-keeper-key** grants the keeper service's service account signing rights on the key (`sh/grant.sh`).
-4. **hydrex-keeper** casts the first vote through the module with a human watching `Voter.poolVote(CONDUIT, i)`
-   and `Voter.votes(CONDUIT, pool)`. Votes are per epoch, Thursday 00:00 UTC, and do not carry over.
+1. **Hydrex** calls `conduit.grantRole(EXECUTOR_ROLE, SAFE)` from the admin EOA
+   `0x74266f2b206d1359b83fc74949ef07176fb3ae03`, and may revoke its outgoing keeper
+   `0x1681b1d40ab2fb81f8a1dd28b56baffbb869a214`.
+2. **The Safe owners** call `enableModule(<module address>)` on the Safe.
+3. **hydrex-keeper-key** grants the keeper service's service account signing rights (`sh/grant.sh`).
+4. **hydrex-keeper** casts the first vote with a human watching `Voter.poolVote(CONDUIT, i)` and
+   `Voter.votes(CONDUIT, pool)`. Votes are per epoch (Thursday 00:00 UTC) and do not carry over.
 
-Undo is symmetric: Hydrex revokes the role, or the Safe owners send `disableModule(prevModule, module)`.
+To undo: Hydrex revokes the role, or the Safe owners call `disableModule(prevModule, module)`.
 
 ## Upstream pins
 
-- Conduit: the Sourcify exact-match source of the live contract is vendored under `test/upstream/hydrex/`.
-  `src/interfaces/IKlimaVeTokenConduit.sol` re-declares its two `EXECUTOR_ROLE` members and imports nothing.
-  `test/Fork.t.sol` pins the conduit's runtime code hash on Base.
-- Safe: `ModuleManager.sol` and its three dependencies from safe-smart-account `v1.3.0` are vendored under
-  `test/upstream/safe/`. `src/interfaces/ISafeModuleManager.sol` re-declares the one member it calls.
-  `test/Fork.t.sol` pins the Safe's singleton, `GnosisSafeL2` 1.3.0 at `0xfb1bffC9d739B8D520DaF37dF666da4C687191EA`.
-- Keeper: `record/keeper.json` and `record/keeper.pem` from hydrex-keeper-key at `cdb829a` are vendored under
-  `test/upstream/keeper-key/`. The deploy script reads the address from the JSON; two independent derivations
-  from the PEM, one in Solidity and one in shell, must agree with it.
-- `test/Selectors.t.sol` asserts `0x6f816a20` (`vote`), `0x786fb402` (`claimSwapAndDistribute`) and
-  `0x5229073f` (`execTransactionFromModuleReturnData`) against literals, `keccak256` of the signatures, the
-  vendored files and the table in `test/upstream/UPSTREAM.md`, and that the conduit gates exactly two members
-  on `EXECUTOR_ROLE`.
-
-If Hydrex deploys a new conduit, the Safe migrates to another singleton, or a new keeper key is created, the pins
-fail CI and a corrected contract is deployed under a new salt.
+`test/upstream/` vendors the conduit source (Sourcify), Safe 1.3.0's `ModuleManager` and dependencies, and the
+keeper record; see [`UPSTREAM.md`](test/upstream/UPSTREAM.md). `src/interfaces/` re-declares the members used and
+imports nothing. `test/Selectors.t.sol` pins the selectors, and `test/Fork.t.sol` pins the conduit's code hash and
+the Safe's singleton on Base. A new conduit, Safe singleton or keeper key fails CI and needs a new salt.
 
 ## Reviewing
 
-- `src/KlimaConduitExecutor.sol` and `src/interfaces/` are the whole surface; the rest is tests, tooling and
-  records.
-- `forge test` runs 54 tests against `test/mocks/`, which mirror the Safe's `GS104` module gate and return-data
-  path and the conduit's OpenZeppelin v5 role gate: the keeper reaches the conduit with exact calldata, fuzzed
-  over arrays; every other caller reverts; conduit reverts bubble with their original data, fuzzed; a Safe
-  returning `false` reverts; ETH and unknown selectors are rejected; `vm.accesses` shows no storage read or
-  written; every constructor rejection path, fuzzed. `test/Deploy.t.sol` base64-decodes the vendored PEM and
-  derives the keeper address from the curve point, so a wrong address cannot be pasted in.
-- `BASE_RPC_URL=<archive rpc> forge test --match-path test/Fork.t.sol` runs 14 more on Base at pinned blocks:
-  Hydrex's grant and the Safe's `enableModule` are pranked, then the keeper votes through the module and the
-  live Voter records it; the keeper's own 2026-09-09 vote
-  ([tx](https://basescan.org/tx/0x6766749800fbc54c5cf134b3fd15a2456a57115b8319be995a48693406121607)) is replayed
-  one block earlier through the module and produces the same three `Voted` weights; a claim for a Safe-owned
-  veNFT completes; the module fails before Hydrex's grant, before the Safe enables it, and for any other caller;
-  the deploy script's targets are the live contracts. The fork suite reads `SAFE` and `CONDUIT` from
-  `script/Deploy.s.sol`. CI runs this job only when the `BASE_RPC_URL` secret is set.
-- `forge build --sizes` gives a 2,477-byte runtime. Two clean builds are byte-identical, and
-  `verification/` holds the standard JSON input and the bytecode hashes CI checks on every commit; remappings
-  are pinned in `foundry.toml` because solc hashes them into the metadata.
-- `forge lint --deny warnings` runs twice in CI: once repo-wide with the test-only exclusions in `foundry.toml`,
-  once on `src/` under the `strict` profile, which excludes nothing but `inline-assembly`.
-- Compiler: solc 0.8.37, `prague`, optimizer at 1,000,000 runs, via-IR, ipfs metadata. Via-IR because the
-  eight-argument claim signature is too deep for the legacy codegen; Hydrex built the conduit via-IR for the
-  same reason.
+- `src/` is the whole on-chain surface.
+- `forge test` runs the unit suite against `test/mocks/`, which mirror the Safe's `GS104` gate and return-data path
+  and the conduit's role gate.
+- `BASE_RPC_URL=<archive rpc> forge test --match-path test/Fork.t.sol` runs against Base at pinned blocks: it wires
+  the live Safe and conduit, votes and claims through the module, and replays the keeper's 2026-09-09 vote
+  ([tx](https://basescan.org/tx/0x6766749800fbc54c5cf134b3fd15a2456a57115b8319be995a48693406121607)) with
+  identical `Voted` weights. CI runs it only when the `BASE_RPC_URL` secret is set.
+- Builds are reproducible; `verification/` holds the standard JSON input and bytecode hashes, checked in CI.
+- Compiler: solc 0.8.37, `prague`, optimizer 1,000,000 runs, via-IR, ipfs metadata.
 
 ## Known limitations
 
-- One keeper, fixed at deployment. A new key means a new record in hydrex-keeper-key, a new module under a new
-  salt, one Safe transaction to enable it and one to disable the old one.
-- The module does not check epochs, pools or weights; the Voter does. A keeper bug votes wrong, not more.
-- The keeper can call `claimSwapAndDistribute` for any delegator's veNFT with any swap calldata the conduit's
-  routers accept. The conduit's output-token check bounds the damage of a bad route to a bad price, and
-  rewards still go to that delegator, never to the keeper.
-- Only the `KlimaVeTokenConduit` claim signature is supported; other Hydrex conduit types would need their own
-  module.
+- One keeper, fixed at deployment. Rotating it means a new module under a new salt and two Safe transactions.
+- The module does not check epochs, pools or weights; the Voter does.
+- The keeper can claim for any delegator's veNFT with any swap calldata the conduit's routers accept. The conduit's
+  output-token check limits a bad route to a bad price, and rewards still go to the delegator.
+- Only the `KlimaVeTokenConduit` claim signature is supported.
 
 ## License
 
 MIT, REUSE compliant. The vendored conduit source and keeper record are MIT and the vendored Safe files are
-LGPL-3.0-only, all reproduced unmodified, with their copyright holders recorded in `REUSE.toml`.
+LGPL-3.0-only, all unmodified, with their copyright holders recorded in `REUSE.toml`.

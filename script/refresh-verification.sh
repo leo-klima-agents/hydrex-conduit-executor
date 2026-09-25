@@ -8,5 +8,5 @@ cd "$(dirname "$0")/.."
 forge build
 forge script script/Hashes.s.sol
 forge verify-contract --show-standard-json-input 0x0000000000000000000000000000000000000001 \
-  src/KlimaConduitExecutor.sol:KlimaConduitExecutor > verification/KlimaConduitExecutor.standard-input.json
+  src/HydrexCarbonImpactExecutor.sol:HydrexCarbonImpactExecutor > verification/HydrexCarbonImpactExecutor.standard-input.json
 ./script/check-verification.sh

@@ -5,7 +5,7 @@ SPDX-License-Identifier: MIT
 
 # Vendored upstream fixtures
 
-Byte-identical copies of the upstream files KlimaConduitExecutor is built against; `src/` never imports them.
+Byte-identical copies of the upstream files HydrexCarbonImpactExecutor is built against; `src/` never imports them.
 The Safe files are self-contained and `test/Selectors.t.sol` compiles `ModuleManager.sol` to compare selectors.
 The conduit imports OpenZeppelin and Hydrex interfaces that are not vendored, so `foundry.toml` skips it and the
 test checks its `EXECUTOR_ROLE` members as text.
