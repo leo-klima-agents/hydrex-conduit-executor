@@ -79,7 +79,7 @@ contract SelectorsTest is Test {
             vm.contains(mm, "require(msg.sender != SENTINEL_MODULES && modules[msg.sender] != address(0), \"GS104\");")
         );
         string memory en = vm.readFile("test/upstream/safe/common/Enum.sol");
-        assertTrue(vm.contains(en, "enum Operation {Call, DelegateCall}"));
+        assertTrue(vm.contains(en, "enum Operation {\n        Call,\n        DelegateCall\n    }"));
     }
 
     function test_selectors_upstreamMdTable() public view {

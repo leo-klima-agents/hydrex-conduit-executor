@@ -8,7 +8,7 @@ import {console} from "forge-std/console.sol";
 import {KlimaVeTokenConduitExecutor} from "../src/KlimaVeTokenConduitExecutor.sol";
 
 contract Deploy is Script {
-    address public constant SAFE = 0xa79cd47655156b299762DFE92A67980805ce5a31;
+    address public constant SAFE = 0x17f513C024C1C67db050258ba569c714a9CF1B12;
     address public constant CONDUIT = 0xdE91885cF35ac57DF0c4A75c16862127dBe8317c;
     string public constant KEEPER_RECORD = "test/upstream/keeper/keeper.json";
     string public constant SALT_PREIMAGE = "klimaprotocol.com/KlimaVeTokenConduitExecutor/v1";

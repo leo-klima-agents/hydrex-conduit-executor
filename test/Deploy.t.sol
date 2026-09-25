@@ -17,7 +17,7 @@ contract DeployTest is Test {
     }
 
     function test_canonicalValues() public view {
-        assertEq(d.SAFE(), 0xa79cd47655156b299762DFE92A67980805ce5a31);
+        assertEq(d.SAFE(), 0x17f513C024C1C67db050258ba569c714a9CF1B12);
         assertEq(d.CONDUIT(), 0xdE91885cF35ac57DF0c4A75c16862127dBe8317c);
         assertEq(d.keeper(), 0x625CF6663d9D090535FBd57680bFFE6fA0262434);
         assertEq(d.KEEPER_RECORD(), "test/upstream/keeper/keeper.json");

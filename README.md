@@ -6,7 +6,7 @@ SPDX-License-Identifier: MIT
 # hydrex-conduit-executor
 
 `KlimaVeTokenConduitExecutor` is an immutable Safe module that lets one HSM-held keeper key call two functions on
-Hydrex's `KlimaVeTokenConduit` (the Klima "Carbon Impact" conduit) on behalf of the Klima Safe, and nothing else.
+Hydrex's `KlimaVeTokenConduit` (the Klima "Carbon Impact" conduit) on behalf of the executor Safe, and nothing else.
 Hydrex grants the conduit's `EXECUTOR_ROLE` to the Safe, and a Safe cannot be driven by an EOA on a schedule; this
 contract bridges the two. It has no storage, owner, setters, funds or upgrade path.
 
@@ -50,7 +50,7 @@ which pools to vote for and when to claim with which swap calldata, within the c
 | | |
 |---|---|
 | Network | Base |
-| `SAFE` | [`0xa79cd47655156b299762DFE92A67980805ce5a31`](https://basescan.org/address/0xa79cd47655156b299762DFE92A67980805ce5a31), Klima Safe, 3-of-5, Safe 1.3.0 L2 |
+| `SAFE` | [`0x17f513C024C1C67db050258ba569c714a9CF1B12`](https://basescan.org/address/0x17f513C024C1C67db050258ba569c714a9CF1B12), executor Safe, 2-of-3, Safe 1.4.1 L2 |
 | `CONDUIT` | [`0xde91885cf35ac57df0c4a75c16862127dbe8317c`](https://basescan.org/address/0xde91885cf35ac57df0c4a75c16862127dbe8317c#code), `KlimaVeTokenConduit`, verified, not upgradeable |
 | `KEEPER` | [`0x625CF6663d9D090535FBd57680bFFE6fA0262434`](https://basescan.org/address/0x625CF6663d9D090535FBd57680bFFE6fA0262434), Cloud KMS HSM key `hydrex-keeper-v1` version 1, from the [record](https://github.com/ldeso/hydrex-keeper-key/blob/cdb829a/record/keeper.json) |
 | Method | CREATE2 through the default deployer `0x4e59b44847b379578588920cA78FbF26c0B4956C` |
@@ -78,8 +78,9 @@ salt. After changing the source or `script/Deploy.s.sol`, run `script/refresh-ve
 ## Wiring, outside this repo
 
 1. **Hydrex** calls `conduit.grantRole(EXECUTOR_ROLE, SAFE)` from the admin EOA
-   `0x74266f2b206d1359b83fc74949ef07176fb3ae03`, and may revoke its outgoing keeper
-   `0x1681b1d40ab2fb81f8a1dd28b56baffbb869a214`.
+   `0x74266f2b206d1359b83fc74949ef07176fb3ae03`. Done on 2026-09-23
+   ([tx](https://basescan.org/tx/0xf134ecbf1b704707d7a26465694cd0e5a8d1f37bbd8a59a095bc03bbbc0ab544)). Hydrex may
+   revoke its outgoing keeper `0x1681b1d40ab2fb81f8a1dd28b56baffbb869a214` once the module has voted.
 2. **The Safe owners** call `enableModule(<module address>)` on the Safe.
 3. **hydrex-keeper-key** grants the keeper service's service account signing rights (`sh/grant.sh`).
 4. **hydrex-keeper** casts the first vote with a human watching `Voter.poolVote(CONDUIT, i)` and
@@ -89,7 +90,7 @@ To undo: Hydrex revokes the role, or the Safe owners call `disableModule(prevMod
 
 ## Upstream pins
 
-`test/upstream/` vendors the conduit source (Sourcify), Safe 1.3.0's `ModuleManager` and dependencies, and the
+`test/upstream/` vendors the conduit source (Sourcify), Safe 1.4.1's `ModuleManager` and dependencies, and the
 keeper record; see [`UPSTREAM.md`](test/upstream/UPSTREAM.md). `src/interfaces/` re-declares the members used and
 imports nothing. `test/Selectors.t.sol` pins the selectors, and `test/Fork.t.sol` pins the conduit's code hash and
 the Safe's singleton on Base. A new conduit, Safe singleton or keeper key fails CI and needs a new salt.
@@ -100,9 +101,9 @@ the Safe's singleton on Base. A new conduit, Safe singleton or keeper key fails 
 - `forge test` runs the unit suite against `test/mocks/`, which mirror the Safe's `GS104` gate and return-data path
   and the conduit's role gate.
 - `BASE_RPC_URL=<archive rpc> forge test --match-path test/Fork.t.sol` runs against Base at pinned blocks: it wires
-  the live Safe and conduit, votes and claims through the module, and replays the keeper's 2026-09-09 vote
-  ([tx](https://basescan.org/tx/0x6766749800fbc54c5cf134b3fd15a2456a57115b8319be995a48693406121607)) with
-  identical `Voted` weights. CI runs it only when the `BASE_RPC_URL` secret is set.
+  the live Safe and conduit, votes and claims through the module, and replays the Safe owners' 2026-09-23 vote
+  ([tx](https://basescan.org/tx/0x57a86aa659a3685446b471e59c351d41f3f52c33f7e5df1cf77cfa4457b6c7a3)) with an
+  identical `Voted` weight. CI runs it only when the `BASE_RPC_URL` secret is set.
 - Builds are reproducible; `verification/` holds the standard JSON input and bytecode hashes, checked in CI.
 - Compiler: solc 0.8.37, `prague`, optimizer 1,000,000 runs, via-IR, ipfs metadata.
 

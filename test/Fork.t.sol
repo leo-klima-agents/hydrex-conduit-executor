@@ -11,7 +11,7 @@ import {ModuleTestBase} from "./utils/ModuleTestBase.sol";
 
 interface IAccessControl {
     function hasRole(bytes32 role, address account) external view returns (bool);
-    function grantRole(bytes32 role, address account) external;
+    function revokeRole(bytes32 role, address account) external;
 }
 
 interface ISafe {
@@ -45,22 +45,25 @@ contract ForkTest is ModuleTestBase {
     address internal constant HYDREX_KEEPER = 0x1681b1d40AB2fb81F8a1dd28b56baFfbB869a214;
     bytes32 internal constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
 
-    address internal constant SAFE_SINGLETON = 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA;
+    address internal constant SAFE_SINGLETON = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
     bytes32 internal constant CONDUIT_CODEHASH = 0x0d67cd335e3ae9cde256cf399f819a3ea2b9c248b0336840a3b20a2ee82c192e;
 
-    // 2026-09-18, in the epoch starting 2026-09-17.
-    uint256 internal constant BLOCK = 51_477_372;
-    uint256 internal constant EPOCH_START = 1_789_603_200;
-    uint256 internal constant CONDUIT_POWER = 901_467_812_512_428_290_739_293;
+    // 2026-09-25, in the epoch starting 2026-09-24: Hydrex has granted the Safe `EXECUTOR_ROLE`, no module yet.
+    uint256 internal constant BLOCK = 51_784_000;
+    uint256 internal constant EPOCH_START = 1_790_208_000;
+    uint256 internal constant CONDUIT_POWER = 897_081_627_439_923_405_444_321;
+    uint256 internal constant LAST_VOTED = 1_790_178_525;
 
-    // The block before tx 0x6766749800fbc54c5cf134b3fd15a2456a57115b8319be995a48693406121607 and its votes.
-    uint256 internal constant REPLAY_BLOCK = 51_082_978;
-    uint256 internal constant REPLAY_EPOCH_START = 1_788_393_600;
-    uint256 internal constant REPLAY_POWER = 949_625_930_479_905_743_892_671;
-    uint256[3] internal replayVotes =
-        [uint256(702_723_188_555_130_250_480_576), 161_436_408_181_583_976_461_754, 85_466_333_743_191_516_950_340];
+    // The block before tx 0x57a86aa659a3685446b471e59c351d41f3f52c33f7e5df1cf77cfa4457b6c7a3, in which the Safe's
+    // owners voted by hand through `execTransaction`, and its vote.
+    uint256 internal constant REPLAY_BLOCK = 51_694_588;
+    uint256 internal constant REPLAY_EPOCH_START = 1_789_603_200;
+    uint256 internal constant REPLAY_POWER = 901_467_812_512_428_290_739_293;
+    address internal constant REPLAY_POOL = 0x51f0B932855986B0E621c9D4DB6Eee1f4644D3D2;
 
-    uint256 internal constant SAFE_TOKEN_ID = 14_247;
+    // Klima's veNFT, delegated to the conduit and owned by the Klima treasury Safe, not the executor Safe.
+    uint256 internal constant KLIMA_TOKEN_ID = 14_247;
+    address internal constant KLIMA_SAFE = 0xa79cd47655156b299762DFE92A67980805ce5a31;
 
     address internal keeper;
     address[] internal pools;
@@ -90,19 +93,14 @@ contract ForkTest is ModuleTestBase {
         module = new KlimaVeTokenConduitExecutor(safe, conduit, keeper);
     }
 
-    function _grant() internal {
+    function _revoke() internal {
         vm.prank(HYDREX_ADMIN);
-        IAccessControl(conduit).grantRole(EXECUTOR_ROLE, safe);
+        IAccessControl(conduit).revokeRole(EXECUTOR_ROLE, safe);
     }
 
     function _enable() internal {
         vm.prank(safe);
         ISafe(safe).enableModule(address(module));
-    }
-
-    function _wire() internal {
-        _grant();
-        _enable();
     }
 
     function test_pin_conduitCode() public {
@@ -114,13 +112,13 @@ contract ForkTest is ModuleTestBase {
     function test_pin_safeSingleton() public {
         _fork(BLOCK);
         assertEq(address(uint160(uint256(vm.load(safe, bytes32(0))))), SAFE_SINGLETON);
-        assertEq(ISafe(safe).VERSION(), "1.3.0");
-        assertEq(SAFE_SINGLETON.codehash, 0x21842597390c4c6e3c1239e434a682b054bd9548eee5e9b1d6a4482731023c0f);
+        assertEq(ISafe(safe).VERSION(), "1.4.1");
+        assertEq(SAFE_SINGLETON.codehash, 0xb1f926978a0f44a2c0ec8fe822418ae969bd8c3f18d61e5103100339894f81ff);
     }
 
     function test_pin_deployScriptTargetsLiveContracts() public {
         _fork(BLOCK);
-        assertEq(safe, 0xa79cd47655156b299762DFE92A67980805ce5a31);
+        assertEq(safe, 0x17f513C024C1C67db050258ba569c714a9CF1B12);
         assertEq(conduit, 0xdE91885cF35ac57DF0c4A75c16862127dBe8317c);
         assertTrue(safe.code.length != 0 && conduit.code.length != 0);
         Deploy d = new Deploy(); // on the fork; `deploy` from setUp lives on the pre-fork chain
@@ -134,20 +132,22 @@ contract ForkTest is ModuleTestBase {
         _fork(BLOCK);
         assertTrue(IAccessControl(conduit).hasRole(bytes32(0), HYDREX_ADMIN), "Hydrex admin lost DEFAULT_ADMIN_ROLE");
         assertTrue(IAccessControl(conduit).hasRole(EXECUTOR_ROLE, HYDREX_KEEPER));
-        assertFalse(IAccessControl(conduit).hasRole(EXECUTOR_ROLE, safe));
+        assertTrue(IAccessControl(conduit).hasRole(EXECUTOR_ROLE, safe));
         assertFalse(IAccessControl(conduit).hasRole(EXECUTOR_ROLE, address(module)));
         assertFalse(ISafe(safe).isModuleEnabled(address(module)));
         (address[] memory modules,) = ISafe(safe).getModulesPaginated(address(1), 10);
         assertEq(modules.length, 0, "the Safe already has a module");
         assertEq(IVoter(VOTER)._epochTimestamp(), EPOCH_START);
         assertEq(IVotingEscrow(VE).getPastVotes(conduit, EPOCH_START), CONDUIT_POWER);
-        assertEq(IVotingEscrow(VE).ownerOf(SAFE_TOKEN_ID), safe);
-        assertEq(IVotingEscrow(VE).getLockDelegatee(SAFE_TOKEN_ID), conduit);
+        assertEq(IVoter(VOTER).lastVoted(conduit), LAST_VOTED);
+        assertLt(LAST_VOTED, EPOCH_START, "the conduit already voted this epoch");
+        assertEq(IVotingEscrow(VE).ownerOf(KLIMA_TOKEN_ID), KLIMA_SAFE);
+        assertEq(IVotingEscrow(VE).getLockDelegatee(KLIMA_TOKEN_ID), conduit);
     }
 
     function test_vote_throughModule() public {
         _fork(BLOCK);
-        _wire();
+        _enable();
         assertTrue(ISafe(safe).isModuleEnabled(address(module)));
 
         vm.prank(keeper);
@@ -166,72 +166,68 @@ contract ForkTest is ModuleTestBase {
         assertGe(total, CONDUIT_POWER - 3);
     }
 
-    function test_vote_replaysSeptember9() public {
+    function test_vote_replaysSeptember23() public {
         _fork(REPLAY_BLOCK);
-        _wire();
+        _enable();
         assertEq(IVoter(VOTER)._epochTimestamp(), REPLAY_EPOCH_START);
         assertEq(IVotingEscrow(VE).getPastVotes(conduit, REPLAY_EPOCH_START), REPLAY_POWER);
 
-        bytes memory keeperCalldata = abi.encodeCall(IKlimaVeTokenConduit.vote, (pools, weights));
+        address[] memory replayPools = new address[](1);
+        replayPools[0] = REPLAY_POOL;
+        uint256[] memory replayWeights = new uint256[](1);
+        replayWeights[0] = 100;
+        bytes memory safeCalldata = abi.encodeCall(IKlimaVeTokenConduit.vote, (replayPools, replayWeights));
         assertEq(
-            keccak256(keeperCalldata),
+            keccak256(safeCalldata),
             keccak256(
                 hex"6f816a20" hex"0000000000000000000000000000000000000000000000000000000000000040"
-                hex"00000000000000000000000000000000000000000000000000000000000000c0"
-                hex"0000000000000000000000000000000000000000000000000000000000000003"
-                hex"0000000000000000000000007796fc53b75960a9762ba267c19f5da9868b7853"
-                hex"0000000000000000000000009849e92f29a9d3b89fe09694746e7acf52bbc37d"
+                hex"0000000000000000000000000000000000000000000000000000000000000080"
+                hex"0000000000000000000000000000000000000000000000000000000000000001"
                 hex"00000000000000000000000051f0b932855986b0e621c9d4db6eee1f4644d3d2"
-                hex"0000000000000000000000000000000000000000000000000000000000000003"
-                hex"000000000000000000000000000000000000000000000000000000000000004a"
-                hex"0000000000000000000000000000000000000000000000000000000000000011"
-                hex"0000000000000000000000000000000000000000000000000000000000000009"
+                hex"0000000000000000000000000000000000000000000000000000000000000001"
+                hex"0000000000000000000000000000000000000000000000000000000000000064"
             ),
-            "not the calldata the keeper sent"
+            "not the calldata the Safe sent"
         );
 
-        for (uint256 i; i < 3; ++i) {
-            vm.expectEmit(VOTER);
-            emit Voted(conduit, replayVotes[i]);
-        }
+        vm.expectEmit(VOTER);
+        emit Voted(conduit, REPLAY_POWER);
         vm.prank(keeper);
-        module.vote(pools, weights);
+        module.vote(replayPools, replayWeights);
 
-        assertEq(IVoter(VOTER).poolVoteLength(conduit), 3);
-        for (uint256 i; i < 3; ++i) {
-            assertEq(IVoter(VOTER).poolVote(conduit, i), pools[i]);
-            assertEq(IVoter(VOTER).votes(conduit, pools[i]), replayVotes[i]);
-        }
+        assertEq(IVoter(VOTER).poolVoteLength(conduit), 1);
+        assertEq(IVoter(VOTER).poolVote(conduit, 0), REPLAY_POOL);
+        assertEq(IVoter(VOTER).votes(conduit, REPLAY_POOL), REPLAY_POWER);
     }
 
     event Voted(address indexed voter, uint256 weight);
 
     function test_vote_revertsForNonKeeper() public {
         _fork(BLOCK);
-        _wire();
+        _enable();
         address[3] memory callers = [HYDREX_KEEPER, HYDREX_ADMIN, safe];
         for (uint256 i; i < callers.length; ++i) {
             vm.expectRevert(KlimaVeTokenConduitExecutor.NotKeeper.selector);
             vm.prank(callers[i]);
             module.vote(pools, weights);
         }
-        assertEq(IVoter(VOTER).lastVoted(conduit), 1_788_955_305);
+        assertEq(IVoter(VOTER).lastVoted(conduit), LAST_VOTED);
     }
 
-    function test_vote_revertsBeforeHydrexGrant() public {
+    function test_vote_revertsWithoutHydrexGrant() public {
         _fork(BLOCK);
         _enable();
+        _revoke();
         vm.expectRevert(
             abi.encodeWithSignature("AccessControlUnauthorizedAccount(address,bytes32)", safe, EXECUTOR_ROLE)
         );
         vm.prank(keeper);
         module.vote(pools, weights);
-        assertEq(IVoter(VOTER).lastVoted(conduit), 1_788_955_305);
+        assertEq(IVoter(VOTER).lastVoted(conduit), LAST_VOTED);
     }
 
     function test_vote_revertsBeforeSafeEnablesModule() public {
         _fork(BLOCK);
-        _grant();
         vm.expectRevert(bytes("GS104"));
         vm.prank(keeper);
         module.vote(pools, weights);
@@ -239,7 +235,7 @@ contract ForkTest is ModuleTestBase {
 
     function test_vote_bubblesVoterRevert() public {
         _fork(BLOCK);
-        _wire();
+        _enable();
         address[] memory onePool = new address[](1);
         onePool[0] = pools[0];
         vm.expectRevert(bytes("Pools/weights length mismatch"));
@@ -249,10 +245,10 @@ contract ForkTest is ModuleTestBase {
 
     function test_claim_throughModule() public {
         _fork(BLOCK);
-        _wire();
+        _enable();
 
         vm.recordLogs();
-        _claim(keeper, SAFE_TOKEN_ID);
+        _claim(keeper, KLIMA_TOKEN_ID);
 
         Vm.Log[] memory logs = vm.getRecordedLogs();
         bytes32 completed = keccak256(
@@ -262,8 +258,8 @@ contract ForkTest is ModuleTestBase {
         for (uint256 i; i < logs.length; ++i) {
             if (logs[i].emitter == conduit && logs[i].topics[0] == completed) {
                 seen = true;
-                assertEq(uint256(logs[i].topics[1]), SAFE_TOKEN_ID);
-                assertEq(address(uint160(uint256(logs[i].topics[2]))), safe);
+                assertEq(uint256(logs[i].topics[1]), KLIMA_TOKEN_ID);
+                assertEq(address(uint160(uint256(logs[i].topics[2]))), KLIMA_SAFE);
             }
         }
         assertTrue(seen, "conduit did not complete the claim");
@@ -271,7 +267,7 @@ contract ForkTest is ModuleTestBase {
 
     function test_claim_bubblesConduitRevert() public {
         _fork(BLOCK);
-        _wire();
+        _enable();
         uint256 missing = type(uint256).max;
         bytes memory call = abi.encodeCall(
             IKlimaVeTokenConduit.claimSwapAndDistribute,
@@ -288,17 +284,18 @@ contract ForkTest is ModuleTestBase {
 
     function test_claim_revertsForNonKeeper() public {
         _fork(BLOCK);
-        _wire();
+        _enable();
         vm.expectRevert(KlimaVeTokenConduitExecutor.NotKeeper.selector);
-        _claim(HYDREX_KEEPER, SAFE_TOKEN_ID);
+        _claim(HYDREX_KEEPER, KLIMA_TOKEN_ID);
     }
 
-    function test_claim_revertsBeforeHydrexGrant() public {
+    function test_claim_revertsWithoutHydrexGrant() public {
         _fork(BLOCK);
         _enable();
+        _revoke();
         vm.expectRevert(
             abi.encodeWithSignature("AccessControlUnauthorizedAccount(address,bytes32)", safe, EXECUTOR_ROLE)
         );
-        _claim(keeper, SAFE_TOKEN_ID);
+        _claim(keeper, KLIMA_TOKEN_ID);
     }
 }
