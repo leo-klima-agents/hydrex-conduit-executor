@@ -48,20 +48,18 @@ contract ForkTest is ModuleTestBase {
     address internal constant SAFE_SINGLETON = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
     bytes32 internal constant CONDUIT_CODEHASH = 0x0d67cd335e3ae9cde256cf399f819a3ea2b9c248b0336840a3b20a2ee82c192e;
 
-    // 2026-09-25, in the epoch starting 2026-09-24: Hydrex has granted the Safe `EXECUTOR_ROLE`, no module yet.
+    // 2026-09-25, in the epoch starting 2026-09-24.
     uint256 internal constant BLOCK = 51_784_000;
     uint256 internal constant EPOCH_START = 1_790_208_000;
     uint256 internal constant CONDUIT_POWER = 897_081_627_439_923_405_444_321;
     uint256 internal constant LAST_VOTED = 1_790_178_525;
 
-    // The block before tx 0x57a86aa659a3685446b471e59c351d41f3f52c33f7e5df1cf77cfa4457b6c7a3, in which the Safe's
-    // owners voted by hand through `execTransaction`, and its vote.
+    // The block before tx 0x57a86aa659a3685446b471e59c351d41f3f52c33f7e5df1cf77cfa4457b6c7a3 and its vote.
     uint256 internal constant REPLAY_BLOCK = 51_694_588;
     uint256 internal constant REPLAY_EPOCH_START = 1_789_603_200;
     uint256 internal constant REPLAY_POWER = 901_467_812_512_428_290_739_293;
     address internal constant REPLAY_POOL = 0x51f0B932855986B0E621c9D4DB6Eee1f4644D3D2;
 
-    // Klima's veNFT, delegated to the conduit and owned by the Klima treasury Safe, not the executor Safe.
     uint256 internal constant KLIMA_TOKEN_ID = 14_247;
     address internal constant KLIMA_SAFE = 0xa79cd47655156b299762DFE92A67980805ce5a31;
 
