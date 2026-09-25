@@ -24,13 +24,7 @@ SPDX-FileCopyrightText = "2026 Léo de Souza"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = "verification/**"
-precedence = "override"
-SPDX-FileCopyrightText = "2026 Léo de Souza"
-SPDX-License-Identifier = "MIT"
-
-[[annotations]]
-path = "broadcast/**"
+path = ["broadcast/**", "verification/**"]
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Léo de Souza"
 SPDX-License-Identifier = "MIT"
