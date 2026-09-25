@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 Klima Protocol
+// SPDX-FileCopyrightText: 2026 Léo de Souza
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.37;
 
@@ -13,12 +13,12 @@ contract Hashes is Deploy {
         // The constructor requires code at SAFE and CONDUIT; this script runs on a local EVM, not a fork.
         vm.etch(SAFE, hex"00");
         vm.etch(CONDUIT, hex"00");
-        KlimaConduitExecutor local = new KlimaConduitExecutor(SAFE, CONDUIT, KEEPER);
+        KlimaConduitExecutor local = new KlimaConduitExecutor(SAFE, CONDUIT, keeper());
 
         string memory dep = "deployment";
         string memory depJson = vm.serializeAddress(dep, "safe", SAFE);
         depJson = vm.serializeAddress(dep, "conduit", CONDUIT);
-        depJson = vm.serializeAddress(dep, "keeper", KEEPER);
+        depJson = vm.serializeAddress(dep, "keeper", keeper());
         depJson = vm.serializeBytes(dep, "constructorArgs", constructorArgs());
         depJson = vm.serializeAddress(dep, "address", predicted);
         depJson = vm.serializeBytes32(dep, "runtimeKeccak", keccak256(address(local).code));

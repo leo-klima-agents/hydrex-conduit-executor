@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Klima Protocol
+# SPDX-FileCopyrightText: 2026 Léo de Souza
 # SPDX-License-Identifier: MIT
 
 name: CI
@@ -15,7 +15,7 @@ env:
 jobs:
   check:
     name: fmt, build, test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -41,7 +41,7 @@ jobs:
 
   fork:
     name: Base fork tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
     steps:
@@ -61,7 +61,7 @@ jobs:
 
   upstream-pin:
     name: vendored upstream sha256
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: sha256sum -c
@@ -76,14 +76,14 @@ jobs:
 
   reuse:
     name: REUSE compliance
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: fsfe/reuse-action@676e2d560c9a403aa252096d99fcab3e1132b0f5 # v6.0.0
 
   reproducible-build:
     name: reproducible build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

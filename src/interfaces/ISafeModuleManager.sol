@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 Klima Protocol
+// SPDX-FileCopyrightText: 2026 Léo de Souza
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.37;
 

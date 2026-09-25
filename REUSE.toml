@@ -13,12 +13,18 @@ SPDX-FileCopyrightText = "2021 Gnosis Ltd."
 SPDX-License-Identifier = "LGPL-3.0-only"
 
 [[annotations]]
+path = "test/upstream/keeper-key/*"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Léo de Souza"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
 path = ["test/upstream/SHA256SUMS", "foundry.lock"]
-SPDX-FileCopyrightText = "2026 Klima Protocol"
+SPDX-FileCopyrightText = "2026 Léo de Souza"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
 path = "verification/**"
 precedence = "override"
-SPDX-FileCopyrightText = "2026 Klima Protocol"
+SPDX-FileCopyrightText = "2026 Léo de Souza"
 SPDX-License-Identifier = "MIT"

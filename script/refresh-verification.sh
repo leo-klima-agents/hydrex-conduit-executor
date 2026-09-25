@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-FileCopyrightText: 2026 Klima Protocol
+# SPDX-FileCopyrightText: 2026 Léo de Souza
 # SPDX-License-Identifier: MIT
 # Regenerate both files under verification/ from the current source and script/Deploy.s.sol constants.
 set -euo pipefail

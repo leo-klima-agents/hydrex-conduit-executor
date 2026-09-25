@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-FileCopyrightText: 2026 Klima Protocol
+# SPDX-FileCopyrightText: 2026 Léo de Souza
 # SPDX-License-Identifier: MIT
 # Compare a fresh build against the files under verification/.
 set -euo pipefail
@@ -29,11 +29,18 @@ expect .runtimeTemplateKeccak "$(cast keccak "$(jq -r '.deployedBytecode.object'
 expect .creationCodeKeccak "$(cast keccak "$creation")"
 expect .solc "$(jq -r '.metadata.compiler.version' "$ARTIFACT")"
 
-# The record must describe the constants in script/Deploy.s.sol, not merely be self-consistent.
+# The record must describe the constants in script/Deploy.s.sol and the vendored keeper record, not merely be
+# self-consistent. The keeper address is re-derived from the vendored public key: DER, last 64 bytes, keccak256.
+KEEPER_DIR=test/upstream/keeper-key
 constant() { grep -oE "constant $1 = 0x[0-9a-fA-F]{40}" script/Deploy.s.sol | grep -oE '0x[0-9a-fA-F]{40}'; }
 expect .deployment.safe "$(cast to-check-sum-address "$(constant SAFE)")"
 expect .deployment.conduit "$(cast to-check-sum-address "$(constant CONDUIT)")"
-expect .deployment.keeper "$(cast to-check-sum-address "$(constant KEEPER)")"
+expect .deployment.keeper "$(cast to-check-sum-address "$(jq -r .address "$KEEPER_DIR/keeper.json")")"
+der=$(mktemp)
+openssl pkey -pubin -in "$KEEPER_DIR/keeper.pem" -outform DER -out "$der"
+xy=$(tail -c 64 "$der" | od -An -v -tx1 | tr -d ' \n')
+rm -f "$der"
+expect .deployment.keeper "$(cast to-check-sum-address "0x$(cast keccak "0x$xy" | tr -d '\n' | tail -c 40)")"
 expect .saltPreimage "$(grep -oE 'SALT_PREIMAGE = "[^"]+"' script/Deploy.s.sol | cut -d'"' -f2)"
 expect .salt "$(cast keccak "$(jq -r .saltPreimage "$HASHES")")"
 

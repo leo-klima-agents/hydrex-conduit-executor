@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2026 Klima Protocol
+SPDX-FileCopyrightText: 2026 Léo de Souza
 SPDX-License-Identifier: MIT
 -->
 
@@ -17,12 +17,18 @@ test checks its `EXECUTOR_ROLE` members as text.
 | `safe/base/Executor.sol` | safe-global/safe-smart-account `v1.3.0`, `contracts/base/Executor.sol` | LGPL-3.0-only |
 | `safe/common/Enum.sol` | safe-global/safe-smart-account `v1.3.0`, `contracts/common/Enum.sol` | LGPL-3.0-only |
 | `safe/common/SelfAuthorized.sol` | safe-global/safe-smart-account `v1.3.0`, `contracts/common/SelfAuthorized.sol` | LGPL-3.0-only |
+| `keeper-key/keeper.json` | ldeso/hydrex-keeper-key `cdb829a`, `record/keeper.json` | MIT |
+| `keeper-key/keeper.pem` | ldeso/hydrex-keeper-key `cdb829a`, `record/keeper.pem` | MIT |
 
 - Conduit: verified on Sourcify (creation and runtime exact match, 2026-04-29) with solc `0.8.26+commit.8a97fa7a`,
   `cancun`, optimizer 200 runs, via-IR. Runtime `keccak256` on Base:
   `0x0d67cd335e3ae9cde256cf399f819a3ea2b9c248b0336840a3b20a2ee82c192e`, pinned by `test/Fork.t.sol`.
 - Safe: https://github.com/safe-global/safe-smart-account at tag `v1.3.0`. The Klima Safe's singleton is
   `GnosisSafeL2` 1.3.0 at `0xfb1bffC9d739B8D520DaF37dF666da4C687191EA`, pinned by `test/Fork.t.sol`.
+- Keeper: https://github.com/ldeso/hydrex-keeper-key writes `record/` from Cloud KMS key
+  `projects/hydrex-keeper-key-bpzw/locations/us/keyRings/hydrex-keeper/cryptoKeys/hydrex-keeper-v1`, version 1,
+  HSM, secp256k1. `script/Deploy.s.sol` reads `KEEPER` from the vendored `keeper.json`; `test/Deploy.t.sol` and
+  `script/check-verification.sh` each re-derive the address from the vendored `keeper.pem`.
 - Hashes: see `SHA256SUMS` (verified in CI with `sha256sum -c`)
 
 ```
@@ -31,6 +37,8 @@ test checks its `EXECUTOR_ROLE` members as text.
 87c8c6cb45069e68dfb58c2347e69b43ab8b5a31f34adcf5c0705b9f595a7815  safe/base/Executor.sol
 9beffe49e2ddcc6548f16883c9333daa607a7d21eda1cc5b7af8cefef034f64c  safe/common/Enum.sol
 24764612bf5539179a07a7655ec6ccb22eab6ffdd0b7c77730c79e1995b64326  safe/common/SelfAuthorized.sol
+0924a6fe71c7e259ad3e8a0398bc7277d63af85ad47520cc3a6f509134cda2de  keeper-key/keeper.json
+37051d3995a3525ed2033b37bf39a91e2d2d826caca177bba63d67a517baab9d  keeper-key/keeper.pem
 ```
 
 ## Selectors pinned from these files
@@ -56,11 +64,17 @@ T=v1.3.0
 for f in base/ModuleManager base/Executor common/Enum common/SelfAuthorized; do
   curl -sSL -o test/upstream/safe/$f.sol https://raw.githubusercontent.com/safe-global/safe-smart-account/$T/contracts/$f.sol
 done
+# keeper record
+C=cdb829a
+for f in keeper.json keeper.pem; do
+  curl -sSL -o test/upstream/keeper-key/$f https://raw.githubusercontent.com/ldeso/hydrex-keeper-key/$C/record/$f
+done
 (cd test/upstream && sha256sum hydrex/KlimaVeTokenConduit.sol safe/base/ModuleManager.sol safe/base/Executor.sol \
-  safe/common/Enum.sol safe/common/SelfAuthorized.sol > SHA256SUMS)
-forge test --match-path test/Selectors.t.sol
+  safe/common/Enum.sol safe/common/SelfAuthorized.sol keeper-key/keeper.json keeper-key/keeper.pem > SHA256SUMS)
+forge test --match-path 'test/{Selectors,Deploy}.t.sol'
 ```
 
 The conduit is not upgradeable, so its file changes only if Hydrex deploys a new conduit; that is a new
-`CONDUIT` immutable and a new salt. If a selector test fails after a refresh, fix `src/interfaces/`, regenerate
-both files under `verification/` with `script/refresh-verification.sh`, and redeploy under a bumped salt.
+`CONDUIT` immutable and a new salt. The keeper record changes only if a new key is created; that is a new
+`KEEPER` immutable and a new salt. If a selector or record test fails after a refresh, fix `src/interfaces/` or
+bump the salt, regenerate both files under `verification/` with `script/refresh-verification.sh`, and redeploy.

@@ -1,9 +1,8 @@
-// SPDX-FileCopyrightText: 2026 Klima Protocol
+// SPDX-FileCopyrightText: 2026 Léo de Souza
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.37;
 
 import {Script} from "forge-std/Script.sol";
-import {VmSafe} from "forge-std/Vm.sol";
 import {console} from "forge-std/console.sol";
 
 import {KlimaConduitExecutor} from "../src/KlimaConduitExecutor.sol";
@@ -14,23 +13,26 @@ contract Deploy is Script {
     address public constant SAFE = 0xa79cd47655156b299762DFE92A67980805ce5a31;
     /// @dev Hydrex `KlimaVeTokenConduit`, verified and non-upgradeable.
     address public constant CONDUIT = 0xdE91885cF35ac57DF0c4A75c16862127dBe8317c;
-    /// @dev The HSM-held keeper key. `KEEPER_PLACEHOLDER` until that key exists; `run` refuses to deploy it.
-    ///      Replace, run `script/refresh-verification.sh`, commit, then deploy. The CREATE2 address is a function
-    ///      of the constructor arguments, so the real keeper gets its own address under the same salt.
-    address public constant KEEPER = 0x000000000000000000000000000000000000dEaD;
-    address public constant KEEPER_PLACEHOLDER = 0x000000000000000000000000000000000000dEaD;
+    /// @dev The HSM-held keeper key, read from the record hydrex-keeper-key publishes, vendored byte-for-byte
+    ///      under test/upstream/keeper-key/ and never pasted. test/Deploy.t.sol re-derives the address from the
+    ///      public key in the same directory. A new key means a new record, a new module and a new salt.
+    string public constant KEEPER_RECORD = "test/upstream/keeper-key/keeper.json";
     string public constant SALT_PREIMAGE = "klimaprotocol.com/KlimaConduitExecutor/v1";
     bytes32 public constant SALT = keccak256(bytes(SALT_PREIMAGE));
 
-    function constructorArgs() public pure returns (bytes memory) {
-        return abi.encode(SAFE, CONDUIT, KEEPER);
+    function keeper() public view returns (address) {
+        return vm.parseJsonAddress(vm.readFile(KEEPER_RECORD), ".address");
     }
 
-    function initCode() public pure returns (bytes memory) {
+    function constructorArgs() public view returns (bytes memory) {
+        return abi.encode(SAFE, CONDUIT, keeper());
+    }
+
+    function initCode() public view returns (bytes memory) {
         return bytes.concat(type(KlimaConduitExecutor).creationCode, constructorArgs());
     }
 
-    function predict() public pure returns (address) {
+    function predict() public view returns (address) {
         return _predict(initCode());
     }
 
@@ -39,10 +41,6 @@ contract Deploy is Script {
     }
 
     function run() external virtual returns (address deployed) {
-        // Tests exercise `run` with the placeholder; a script (dry run, broadcast or resume) never may.
-        if (vm.isContext(VmSafe.ForgeContext.ScriptGroup)) {
-            require(KEEPER != KEEPER_PLACEHOLDER, "KEEPER is the placeholder");
-        }
         require(CREATE2_FACTORY.code.length != 0, "CREATE2 deployer not present");
         bytes memory code = initCode();
         deployed = _predict(code);

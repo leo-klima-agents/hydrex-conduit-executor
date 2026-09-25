@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 Klima Protocol
+// SPDX-FileCopyrightText: 2026 Léo de Souza
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.37;
 
@@ -137,7 +137,8 @@ contract ForkTest is ModuleTestBase {
         Deploy d = new Deploy(); // on the fork; `deploy` from setUp lives on the pre-fork chain
         assertEq(d.predict().code.length, 0, "v1 address already has code");
         assertEq(d.run(), d.predict());
-        assertEq(KlimaConduitExecutor(d.predict()).KEEPER(), d.KEEPER());
+        assertEq(KlimaConduitExecutor(d.predict()).KEEPER(), d.keeper());
+        assertEq(d.keeper(), 0x625CF6663d9D090535FBd57680bFFE6fA0262434);
     }
 
     function test_pin_startingState() public {
