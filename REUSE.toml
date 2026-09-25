@@ -28,3 +28,9 @@ path = "verification/**"
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Léo de Souza"
 SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "broadcast/**"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Léo de Souza"
+SPDX-License-Identifier = "MIT"
