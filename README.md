@@ -62,9 +62,15 @@ Not deployed yet; the predicted address is in `verification/bytecode-hashes.json
 
 ```
 forge script script/Deploy.s.sol --rpc-url $BASE_RPC_URL --broadcast --ledger   # or --private-key
-forge verify-contract <address> src/KlimaVeTokenConduitExecutor.sol:KlimaVeTokenConduitExecutor --chain base --watch
-forge verify-contract <address> src/KlimaVeTokenConduitExecutor.sol:KlimaVeTokenConduitExecutor --chain base --verifier sourcify
+ARGS=$(jq -r .deployment.constructorArgs verification/bytecode-hashes.json)
+forge verify-contract <address> src/KlimaVeTokenConduitExecutor.sol:KlimaVeTokenConduitExecutor --chain base \
+  --constructor-args $ARGS --license-type MIT --watch
+forge verify-contract <address> src/KlimaVeTokenConduitExecutor.sol:KlimaVeTokenConduitExecutor --chain base \
+  --verifier sourcify
 ```
+
+Etherscan records the license separately from the SPDX header, hence `--license-type`; Sourcify reads it from the
+source.
 
 The CREATE2 address depends on the constructor arguments, so a new key or conduit means a new address under a new
 salt. After changing the source or `script/Deploy.s.sol`, run `script/refresh-verification.sh`.
