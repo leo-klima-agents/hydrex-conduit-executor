@@ -55,8 +55,10 @@ which pools to vote for and when to claim with which swap calldata, within the c
 | `KEEPER` | [`0x625CF6663d9D090535FBd57680bFFE6fA0262434`](https://basescan.org/address/0x625CF6663d9D090535FBd57680bFFE6fA0262434), Cloud KMS HSM key `hydrex-keeper-v1` version 1, from the [record](https://github.com/ldeso/hydrex-keeper-key/blob/cdb829a/record/keeper.json) |
 | Method | CREATE2 through the default deployer `0x4e59b44847b379578588920cA78FbF26c0B4956C` |
 | Salt | `keccak256("klimaprotocol.com/KlimaVeTokenConduitExecutor/v1")` |
+| Address | [`0x750973E0CB728C3112561Bc8E9b235afA9B17E81`](https://basescan.org/address/0x750973E0CB728C3112561Bc8E9b235afA9B17E81#code), exact match on Basescan (MIT) and [Sourcify](https://repo.sourcify.dev/8453/0x750973E0CB728C3112561Bc8E9b235afA9B17E81) |
+| Deployed | 2026-09-25, block 51,785,243, [tx](https://basescan.org/tx/0xebb950fd52149d07dae9be5f21f338ffab8f11aeca0c89cbef99cc3c05b2c0b0), recorded in `broadcast/Deploy.s.sol/8453/run-latest.json` |
 
-Not deployed yet; the predicted address is in `verification/bytecode-hashes.json`. `script/Deploy.s.sol` reads
+The address and runtime hash match `verification/bytecode-hashes.json`. `script/Deploy.s.sol` reads
 `KEEPER` from `test/upstream/keeper/keeper.json`, a byte-for-byte copy of the hydrex-keeper-key record, and
 `test/Deploy.t.sol` and `script/check-verification.sh` re-derive it from the public key vendored next to it.
 
