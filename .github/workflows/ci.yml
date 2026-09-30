@@ -25,6 +25,8 @@ jobs:
           version: ${{ env.FOUNDRY_VERSION }}
       - name: forge fmt --check
         run: forge fmt --check
+      - name: shellcheck -x script/*.sh
+        run: shellcheck -x script/*.sh
       - name: forge build --sizes
         run: forge build --sizes
       - name: forge lint
