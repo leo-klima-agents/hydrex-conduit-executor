@@ -33,10 +33,7 @@ constant() { grep -oE "constant $1 = 0x[0-9a-fA-F]{40}" script/Deploy.s.sol | gr
 expect .deployment.safe "$(cast to-check-sum-address "$(constant SAFE)")"
 expect .deployment.conduit "$(cast to-check-sum-address "$(constant CONDUIT)")"
 expect .deployment.keeper "$(cast to-check-sum-address "$(jq -r .address "$KEEPER_DIR/keeper.json")")"
-der=$(mktemp)
-openssl pkey -pubin -in "$KEEPER_DIR/keeper.pem" -outform DER -out "$der"
-xy=$(tail -c 64 "$der" | od -An -v -tx1 | tr -d ' \n')
-rm -f "$der"
+xy=$(openssl pkey -pubin -in "$KEEPER_DIR/keeper.pem" -outform DER | tail -c 64 | od -An -v -tx1 | tr -d ' \n')
 expect .deployment.keeper "$(cast to-check-sum-address "0x$(cast keccak "0x$xy" | tr -d '\n' | tail -c 40)")"
 expect .saltPreimage "$(grep -oE 'SALT_PREIMAGE = "[^"]+"' script/Deploy.s.sol | cut -d'"' -f2)"
 expect .salt "$(cast keccak "$(jq -r .saltPreimage "$HASHES")")"
