@@ -11,7 +11,7 @@ Hydrex grants the conduit's `EXECUTOR_ROLE` to the Safe, and a Safe cannot be dr
 contract bridges the two. It has no storage, owner, setters, funds or upgrade path.
 
 The key lives in Google Cloud KMS, defined by [hydrex-keeper-key](https://github.com/ldeso/hydrex-keeper-key). The
-keeper service that signs with it is `hydrex-keeper`.
+keeper service that signs with it is [hydrex-keeper](https://github.com/ldeso/hydrex-keeper).
 
 The whole mechanism is `_exec` in [`src/KlimaVeTokenConduitExecutor.sol`](src/KlimaVeTokenConduitExecutor.sol):
 check `msg.sender == KEEPER`, then `SAFE.execTransactionFromModuleReturnData(CONDUIT, 0, data, Call)` with calldata
